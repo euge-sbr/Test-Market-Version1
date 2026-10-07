@@ -1,0 +1,1 @@
+export { GET, POST, PATCH, DELETE } from "@/client/api/shops";

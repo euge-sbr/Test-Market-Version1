@@ -1,0 +1,1 @@
+export { GET } from "@/client/api/store-products";
