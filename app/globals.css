@@ -194,6 +194,364 @@
   transform-origin: 50% 15%;
 }
 
+@keyframes storefront-splash-mark {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes storefront-pitcher-pour {
+  0%, 18%, 100% {
+    transform: rotate(0deg);
+  }
+  42%, 76% {
+    transform: rotate(24deg);
+  }
+}
+
+@keyframes storefront-tea-flow {
+  0%, 22% {
+    opacity: 0;
+    stroke-dasharray: 0 100;
+  }
+  36%, 78% {
+    opacity: 1;
+    stroke-dasharray: 100 0;
+  }
+  92%, 100% {
+    opacity: 0;
+    stroke-dasharray: 0 100;
+  }
+}
+
+@keyframes storefront-cup-fill {
+  from {
+    transform: scaleY(0.08);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes storefront-pearls-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes storefront-splash-bubble {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.68);
+  }
+  16% {
+    opacity: 0.82;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(18px, -110vh, 0) scale(1.12);
+  }
+}
+
+@keyframes storefront-pearl-glint {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes storefront-splash-loader {
+  0%, 80%, 100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes storefront-splash-exit {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.storefront-splash-content {
+  animation: storefront-splash-mark 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.storefront-pour-art {
+  width: 10rem;
+  height: 9rem;
+  overflow: visible;
+}
+
+.storefront-pitcher {
+  transform-box: fill-box;
+  transform-origin: 85% 90%;
+  animation: storefront-pitcher-pour 2.4s cubic-bezier(0.45, 0, 0.55, 1) both;
+}
+
+.storefront-tea-stream {
+  stroke-dasharray: 0 100;
+  animation: storefront-tea-flow 2.4s ease-in-out both;
+}
+
+.storefront-tea-fill {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: storefront-cup-fill 1.45s 0.8s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.storefront-pearls {
+  opacity: 0;
+  animation: storefront-pearls-appear 350ms 1.8s ease-out forwards;
+}
+
+.storefront-splash-bubbles span {
+  position: absolute;
+  bottom: -2rem;
+  width: 1rem;
+  aspect-ratio: 1;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 9999px;
+  background: radial-gradient(circle at 31% 24%, #a88b78 0%, #46342b 20%, #17110e 58%, #050403 82%);
+  box-shadow: inset -2px -3px 5px rgb(0 0 0 / 70%), inset 2px 2px 3px rgb(255 255 255 / 20%), 0 2px 8px rgb(20 12 9 / 20%);
+  animation: storefront-splash-bubble 6.2s linear infinite;
+}
+
+.storefront-splash-bubbles span::after {
+  position: absolute;
+  top: 19%;
+  left: 22%;
+  width: 22%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 0 7px 2px rgb(255 255 255 / 65%);
+  content: "";
+  animation: storefront-pearl-glint 1.8s ease-in-out infinite;
+}
+
+.storefront-splash-bubbles span:nth-child(1) {
+  left: 8%;
+  width: 1.2rem;
+  animation-delay: 0.2s;
+}
+
+.storefront-splash-bubbles span:nth-child(2) {
+  left: 19%;
+  width: 0.7rem;
+  animation-delay: 2.4s;
+}
+
+.storefront-splash-bubbles span:nth-child(3) {
+  left: 32%;
+  width: 1.35rem;
+  animation-delay: 1.2s;
+}
+
+.storefront-splash-bubbles span:nth-child(4) {
+  left: 44%;
+  width: 0.72rem;
+  animation-delay: 3.5s;
+}
+
+.storefront-splash-bubbles span:nth-child(5) {
+  left: 57%;
+  width: 1.1rem;
+  animation-delay: 0.7s;
+}
+
+.storefront-splash-bubbles span:nth-child(6) {
+  left: 69%;
+  width: 0.75rem;
+  animation-delay: 2.8s;
+}
+
+.storefront-splash-bubbles span:nth-child(7) {
+  left: 81%;
+  width: 1.3rem;
+  animation-delay: 1.8s;
+}
+
+.storefront-splash-bubbles span:nth-child(8) {
+  left: 93%;
+  width: 0.8rem;
+  animation-delay: 4.1s;
+}
+
+.storefront-splash-bubbles span:nth-child(9) {
+  left: 3%;
+  width: 0.72rem;
+  animation-delay: 3.1s;
+}
+
+.storefront-splash-bubbles span:nth-child(10) {
+  left: 25%;
+  width: 0.85rem;
+  animation-delay: 4.5s;
+}
+
+.storefront-splash-bubbles span:nth-child(11) {
+  left: 39%;
+  width: 1rem;
+  animation-delay: 2s;
+}
+
+.storefront-splash-bubbles span:nth-child(12) {
+  left: 63%;
+  width: 1.25rem;
+  animation-delay: 3.8s;
+}
+
+.storefront-splash-bubbles span:nth-child(13) {
+  left: 76%;
+  width: 0.7rem;
+  animation-delay: 0.5s;
+}
+
+.storefront-splash-bubbles span:nth-child(14) {
+  left: 88%;
+  width: 0.95rem;
+  animation-delay: 2.9s;
+}
+
+.storefront-splash-bubbles span:nth-child(15) {
+  left: 51%;
+  width: 0.8rem;
+  animation-delay: 5s;
+}
+
+.sidebar-pearl-field {
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 34%, rgb(251 247 242 / 36%), transparent 64%),
+    linear-gradient(180deg, rgb(255 255 255 / 22%), transparent 48%, rgb(24 17 13 / 3%));
+}
+
+.sidebar-pearl-field span {
+  position: absolute;
+  bottom: -1.5rem;
+  width: 0.8rem;
+  aspect-ratio: 1;
+  border: 1px solid rgb(255 255 255 / 38%);
+  border-radius: 9999px;
+  background: radial-gradient(circle at 31% 24%, #a88b78 0%, #46342b 20%, #17110e 58%, #050403 82%);
+  box-shadow: inset -2px -3px 5px rgb(0 0 0 / 70%), inset 2px 2px 3px rgb(255 255 255 / 24%), 0 2px 8px rgb(20 12 9 / 18%);
+  opacity: 0.52;
+  animation: storefront-splash-bubble 9s linear infinite;
+}
+
+.sidebar-pearl-field span::after {
+  position: absolute;
+  top: 19%;
+  left: 22%;
+  width: 22%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 0 7px 2px rgb(255 255 255 / 65%);
+  content: "";
+  animation: storefront-pearl-glint 2.2s ease-in-out infinite;
+}
+
+.sidebar-pearl-field span:nth-child(1) {
+  left: 7%;
+  width: 1rem;
+  animation-delay: 0.4s;
+}
+
+.sidebar-pearl-field span:nth-child(2) {
+  left: 19%;
+  width: 0.6rem;
+  animation-delay: 3.1s;
+}
+
+.sidebar-pearl-field span:nth-child(3) {
+  left: 33%;
+  width: 1.15rem;
+  animation-delay: 1.8s;
+}
+
+.sidebar-pearl-field span:nth-child(4) {
+  left: 48%;
+  width: 0.7rem;
+  animation-delay: 5s;
+}
+
+.sidebar-pearl-field span:nth-child(5) {
+  left: 63%;
+  width: 0.95rem;
+  animation-delay: 2.6s;
+}
+
+.sidebar-pearl-field span:nth-child(6) {
+  left: 78%;
+  width: 0.65rem;
+  animation-delay: 4.2s;
+}
+
+.sidebar-pearl-field span:nth-child(7) {
+  left: 91%;
+  width: 1.1rem;
+  animation-delay: 0.9s;
+}
+
+.sidebar-pearl-field span:nth-child(8) {
+  left: 12%;
+  width: 0.72rem;
+  animation-delay: 6.1s;
+}
+
+.sidebar-pearl-field span:nth-child(9) {
+  left: 57%;
+  width: 0.62rem;
+  animation-delay: 7.2s;
+}
+
+.sidebar-pearl-field span:nth-child(10) {
+  left: 84%;
+  width: 0.78rem;
+  animation-delay: 5.6s;
+}
+
+.storefront-splash-loader span {
+  width: 0.4rem;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: storefront-splash-loader 900ms ease-in-out infinite;
+}
+
+.storefront-splash-loader span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.storefront-splash-loader span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.storefront-splash--exit {
+  animation: storefront-splash-exit 400ms ease-in forwards;
+}
+
 @media (max-width: 1023px) {
   .product-card-touch-reveal .product-image-frame {
     background-color: color-mix(in srgb, var(--product-accent) 10%, white);
@@ -213,5 +571,23 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-cart-shake {
     animation: none;
+  }
+
+  .storefront-splash-content,
+  .storefront-splash-bubbles span,
+  .storefront-splash-loader span,
+  .storefront-splash-bubbles span,
+  .storefront-splash-bubbles span::after,
+  .sidebar-pearl-field span,
+  .sidebar-pearl-field span::after,
+  .storefront-pitcher,
+  .storefront-tea-stream,
+  .storefront-tea-fill,
+  .storefront-pearls {
+    animation: none;
+  }
+
+  .storefront-splash--exit {
+    animation-duration: 1ms;
   }
 }

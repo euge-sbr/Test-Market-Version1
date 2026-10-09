@@ -23,6 +23,7 @@ export default function ShopsPage() {
   const [shopEmail, setShopEmail] = useState("");
   const [shopPassword, setShopPassword] = useState("");
   const [error, setError] = useState("");
+  const [currentSessionRole, setCurrentSessionRole] = useState<"platform" | "shop" | null>(null);
   const [notice, setNotice] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [updatingShopId, setUpdatingShopId] = useState<string | null>(null);
@@ -48,9 +49,15 @@ export default function ShopsPage() {
         const result = await response.json();
         if (response.ok && result.role === "platform") {
           await loadShops();
-          if (!cancelled) setIsPlatformAdmin(true);
+          if (!cancelled) {
+            setCurrentSessionRole("platform");
+            setIsPlatformAdmin(true);
+          }
         } else if (response.ok) {
-          if (!cancelled) setError("Shop accounts cannot manage other shops. Sign in with the platform password.");
+          if (!cancelled) {
+            setCurrentSessionRole(result.role ?? "shop");
+            setError("Shop accounts cannot manage other shops. Sign in with the platform password.");
+          }
         }
       } catch (reason) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : "Could not load shops.");
@@ -76,9 +83,11 @@ export default function ShopsPage() {
       return;
     }
     if (result.role !== "platform") {
+      setCurrentSessionRole(result.role ?? "shop");
       setError("Shop accounts cannot manage other shops. Sign in with the platform password.");
       return;
     }
+    setCurrentSessionRole("platform");
     setPassword("");
     setIsPlatformAdmin(true);
     try {
@@ -183,7 +192,11 @@ export default function ShopsPage() {
 
   async function handleLogout() {
     await fetch("/api/admin/session", { method: "DELETE" });
+    setCurrentSessionRole(null);
     setIsPlatformAdmin(false);
+    setError("");
+    setEmail("");
+    setPassword("");
     setShops([]);
   }
 
@@ -202,6 +215,11 @@ export default function ShopsPage() {
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Client email <span className="font-normal text-zinc-500">(leave blank for platform access)</span><input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-md border border-zinc-200 bg-white px-3 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" /></label>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Password<div className="relative mt-2"><KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" aria-hidden="true" /><input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-md border border-zinc-200 bg-white py-2.5 pl-9 pr-3 text-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" /></div></label>
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+            {currentSessionRole === "shop" && (
+              <button type="button" onClick={() => void handleLogout()} className="w-full rounded-md border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800">
+                Sign out current shop session
+              </button>
+            )}
             <button type="submit" className="w-full rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">Sign in</button>
           </form>
         </section>

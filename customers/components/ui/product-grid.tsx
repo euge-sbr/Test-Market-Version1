@@ -2,9 +2,13 @@
 
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ShoppingCart, Star } from "lucide-react";
+import {
+  ShoppingCart,
+  Star,
+} from "lucide-react";
 
 import { cn } from "@/shared/utils";
+import { StorefrontDoodleBackground } from "@/customers/components/ui/storefront-doodle-background";
 import { Product } from "@/customers/data/products";
 import { LARGE_SIZE_PRICE_ADJUSTMENT } from "@/customers/data/drink-options";
 import { useCart } from "@/customers/state/cart-context";
@@ -23,6 +27,7 @@ export interface ProductGridProps
   /** Automatically moves the reveal between products when idle. */
   autoPlay?: boolean;
   rotationInterval?: number;
+  showDoodleBackground?: boolean;
 }
 
 const DEFAULT_PRODUCTS: Product[] = [];
@@ -63,16 +68,16 @@ function ProductRating({
             event.stopPropagation();
             onRate(rating);
           }}
-          className="flex size-6 items-center justify-center rounded-sm text-amber-500 transition-colors hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+          className="flex size-4 items-center justify-center rounded-sm text-amber-500 transition-colors hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 sm:size-6"
         >
           <Star
             aria-hidden="true"
-            className="size-4"
+            className="size-3 sm:size-4"
             fill={rating <= Math.round(visibleRating) ? "currentColor" : "none"}
           />
         </button>
       ))}
-      <span aria-live="polite" className="ml-1 whitespace-nowrap text-xs font-medium text-neutral-600 dark:text-neutral-400">
+      <span aria-live="polite" className="ml-1 hidden whitespace-nowrap text-xs font-medium text-neutral-600 dark:text-neutral-400 sm:inline">
         {userRating !== undefined
           ? `${averageRating ? `${averageRating.toFixed(1)} · ` : ""}You: ${userRating}/5`
           : averageRating?.toFixed(1) ?? "New"}
@@ -95,12 +100,12 @@ function AddToCartButton({ productName, onAdd }: { productName: string; onAdd: (
         onAdd();
         setAnimationKey((current) => current + 1);
       }}
-      className="ml-auto flex size-10 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-neutral-50 transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:hover:bg-neutral-100"
+      className="ml-auto flex size-8 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-neutral-50 transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:hover:bg-neutral-100 sm:size-10"
     >
       <ShoppingCart
         key={animationKey}
         aria-hidden="true"
-        className={cn("size-5", animationKey > 0 && "animate-cart-shake")}
+        className={cn("size-4 sm:size-5", animationKey > 0 && "animate-cart-shake")}
       />
     </button>
   );
@@ -193,6 +198,7 @@ export function ProductGrid({
   onActiveProductChange,
   autoPlay = true,
   rotationInterval = 2800,
+  showDoodleBackground = true,
   className,
   ...props
 }: ProductGridProps) {
@@ -274,23 +280,16 @@ export function ProductGrid({
   return (
     <section
       className={cn(
-        "@container relative h-full min-h-[620px] w-full overflow-x-hidden overflow-y-auto bg-white px-4 py-10 text-neutral-950 dark:bg-neutral-950 dark:text-white sm:px-7 sm:py-12",
+        "@container relative h-full min-h-[620px] w-full overflow-x-hidden overflow-y-auto px-4 py-10 text-neutral-950 dark:text-white sm:px-7 sm:py-12",
+        showDoodleBackground ? "bg-white dark:bg-neutral-950" : "bg-transparent",
         className,
       )}
       {...props}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.035] dark:opacity-[0.075]"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at center, currentColor 0.7px, transparent 0.8px)",
-          backgroundSize: "12px 12px",
-        }}
-      />
-
       <div className="relative mx-auto w-full max-w-6xl">
-        <header className="mx-auto mb-8 max-w-2xl text-center">
+        {showDoodleBackground && <StorefrontDoodleBackground />}
+
+        <header className="relative z-10 mx-auto mb-8 max-w-2xl text-center">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
             {eyebrow}
           </p>
@@ -318,7 +317,7 @@ export function ProductGrid({
           </p>
         </header>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="relative z-10 grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
           {products.map((product) => {
             const active = product.id === resolvedActiveId;
 
@@ -326,7 +325,8 @@ export function ProductGrid({
               <div key={product.id} className="group product-card-touch-reveal">
                 <div
                   className={cn(
-                    "relative flex h-full flex-col overflow-hidden rounded-lg border bg-white p-3 shadow-[0_10px_35px_-24px_rgba(0,0,0,0.42)] transition-[border-color,box-shadow,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none dark:bg-neutral-900 sm:p-4",
+                    "relative flex h-full flex-col overflow-hidden rounded-lg border p-2 shadow-[0_10px_35px_-24px_rgba(0,0,0,0.42)] transition-[border-color,box-shadow,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:p-4",
+                    showDoodleBackground ? "bg-white dark:bg-neutral-900" : "bg-white/85 dark:bg-neutral-900/85",
                     active
                       ? "-translate-y-2 border-[color-mix(in_srgb,var(--product-accent)_55%,transparent)] shadow-[0_20px_40px_-24px_color-mix(in_srgb,var(--product-accent)_55%,transparent)]"
                       : "border-neutral-200 dark:border-neutral-700",
@@ -349,27 +349,27 @@ export function ProductGrid({
                   }}
                   onBlur={() => setInteracting(false)}
                 >
-                  <div className="aspect-4/5 w-full overflow-hidden rounded-lg">
+                  <div className="aspect-square w-full overflow-hidden rounded-lg sm:aspect-4/5">
                     <ProductImage product={product} active={active} />
                   </div>
 
-                  <div className="mt-4 flex flex-1 flex-col">
-                    <h3 className="mb-2 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  <div className="mt-2 flex flex-1 flex-col sm:mt-4">
+                    <h3 className="mb-1 line-clamp-2 text-xs font-semibold leading-tight text-neutral-900 dark:text-neutral-50 sm:mb-2 sm:text-lg sm:leading-normal">
                       {product.name}
                     </h3>
                     {product.shop_name && (
-                      <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                      <p className="mb-2 hidden text-xs font-medium text-neutral-500 dark:text-neutral-400 sm:block">
                         Sold by {product.shop_name}
                       </p>
                     )}
-                    <p className="mb-2 line-clamp-2 text-neutral-600 dark:text-neutral-400">
+                    <p className="mb-2 hidden line-clamp-2 text-neutral-600 dark:text-neutral-400 sm:block">
                       {product.description}
                     </p>
-                    <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
-                      <span className="text-xl font-bold text-neutral-900 dark:text-neutral-50">
+                    <div className="mt-auto flex flex-wrap items-center gap-1 pt-2 sm:gap-2 sm:pt-3">
+                      <span className="text-sm font-bold text-neutral-900 dark:text-neutral-50 sm:text-xl">
                         ${product.price.toFixed(2)}
                       </span>
-                      <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      <span className="hidden text-xs text-neutral-500 dark:text-neutral-400 sm:inline">
                         16 oz · 22 oz +${LARGE_SIZE_PRICE_ADJUSTMENT.toFixed(2)}
                       </span>
                       <ProductRating

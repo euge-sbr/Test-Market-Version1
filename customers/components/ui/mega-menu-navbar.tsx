@@ -49,6 +49,7 @@ export interface MegaMenuNavbarProps extends Omit<React.HTMLAttributes<HTMLEleme
   accountLabel?: string;
   cartHref?: string;
   cartLabel?: string;
+  onDesktopOpenChange?: (open: boolean) => void;
 }
 
 type SidebarSection = "categories" | "collections" | "pages";
@@ -158,10 +159,11 @@ function SidebarSection({ title, value, openSection, onToggle, children }: { tit
   return <div className="border-b border-zinc-300 py-2 dark:border-zinc-700"><button type="button" aria-expanded={isOpen} onClick={() => onToggle(value)} className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-base font-bold text-zinc-950 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 dark:text-white dark:hover:bg-zinc-900">{title}<ChevronDown className={cn("size-5 text-zinc-500 transform dark:text-zinc-400", isOpen && "rotate-180")} /></button><div className={cn("grid transition-[grid-template-rows,opacity] duration-200", isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}><div className="overflow-hidden"><div className="mt-1 flex flex-col gap-0.5 border-l border-zinc-300 pl-2 dark:border-zinc-700">{children}</div></div></div></div>;
 }
 
-export function MegaMenuNavbar({ brandName = "ShopMart", brandHref = "/", logo, categories = DEFAULT_CATEGORIES, collections = DEFAULT_COLLECTIONS, resourceGroups = DEFAULT_RESOURCE_GROUPS, accountHref = "/account", accountLabel = "Account", cartHref = "/cart", cartLabel = "Cart", className, ...props }: MegaMenuNavbarProps) {
+export function MegaMenuNavbar({ brandName = "ShopMart", brandHref = "/", logo, categories = DEFAULT_CATEGORIES, collections = DEFAULT_COLLECTIONS, resourceGroups = DEFAULT_RESOURCE_GROUPS, accountHref = "/account", accountLabel = "Account", cartHref = "/cart", cartLabel = "Cart", onDesktopOpenChange, className, ...props }: MegaMenuNavbarProps) {
   const { totalItems } = useCart();
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [openSection, setOpenSection] = React.useState<SidebarSection | null>("categories");
+  const [desktopOpen, setDesktopOpen] = React.useState(true);
+  const [openSection, setOpenSection] = React.useState<SidebarSection | null>(null);
   const [activeDialogHref, setActiveDialogHref] = React.useState<keyof typeof RESOURCE_DIALOGS | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
   const dialogRef = React.useRef<HTMLDivElement>(null);
@@ -220,21 +222,45 @@ export function MegaMenuNavbar({ brandName = "ShopMart", brandHref = "/", logo, 
   }, [activeDialogHref]);
 
   const closeMobile = () => setMobileOpen(false);
+  const closeDesktop = () => {
+    setDesktopOpen(false);
+    onDesktopOpenChange?.(false);
+  };
+  const openNavigation = () => {
+    if (window.matchMedia("(min-width: 64rem)").matches) {
+      setDesktopOpen(true);
+      onDesktopOpenChange?.(true);
+      return;
+    }
+
+    setMobileOpen(true);
+  };
+  const closeNavigation = () => {
+    if (window.matchMedia("(min-width: 64rem)").matches) {
+      closeDesktop();
+      return;
+    }
+
+    closeMobile();
+  };
   const toggleSection = (section: SidebarSection) => setOpenSection((current) => current === section ? null : section);
   const resourceItems = resourceGroups.flatMap((group) => group.links);
 
   return (
     <>
-      <button type="button" aria-label="Open navigation menu" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="fixed left-4 top-4 z-40 flex size-10 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 shadow-sm hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 lg:hidden"><Menu className="size-5" /></button>
-      <div aria-hidden={!mobileOpen} onClick={closeMobile} className={cn("fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity lg:hidden", mobileOpen ? "opacity-100" : "pointer-events-none opacity-0")} />
-      <aside {...props} className={cn("fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col border-r border-zinc-200 bg-white shadow-xl transition-transform duration-300 dark:border-zinc-800 dark:bg-zinc-950 lg:translate-x-0 lg:shadow-none", mobileOpen && "translate-x-0", className)}>
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 px-5 dark:border-zinc-800"><Brand brandName={brandName} brandHref={brandHref} logo={logo} onNavigate={closeMobile} /><button ref={closeButtonRef} type="button" onClick={closeMobile} aria-label="Close navigation menu" className="flex size-9 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:hover:bg-zinc-900 lg:hidden"><X className="size-5" /></button></div>
-        <nav aria-label="Primary navigation" className="flex-1 overflow-y-auto px-3 py-5"><a href={cartHref} onClick={closeMobile} className="mb-2 flex rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-900">{cartLabel} {totalItems > 0 && <span className="ml-2 h-5 w-5 flex items-center justify-center text-xs font-bold rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">{totalItems}</span>}</a><SidebarSection title="Categories" value="categories" openSection={openSection} onToggle={toggleSection}>{categories.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} />)}</SidebarSection><SidebarSection title="Collections" value="collections" openSection={openSection} onToggle={toggleSection}>{collections.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} />)}</SidebarSection><SidebarSection title="Pages" value="pages" openSection={openSection} onToggle={toggleSection}>{resourceItems.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} onOpenDialog={setActiveDialogHref} />)}</SidebarSection></nav>
-        <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800"><a href={accountHref} onClick={closeMobile} className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900">{accountLabel}</a><a href={cartHref} onClick={closeMobile} className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900">{cartLabel}</a></div>
+      <button type="button" aria-label="Open navigation menu" aria-expanded={mobileOpen || desktopOpen} onClick={openNavigation} className={cn("fixed left-4 top-4 z-40 flex size-10 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 shadow-sm hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900", desktopOpen ? "lg:hidden" : "lg:flex")}><Menu className="size-5" /></button>
+      <div aria-hidden={!mobileOpen} onClick={closeMobile} className={cn("fixed inset-0 z-[55] bg-black/40 backdrop-blur-sm transition-opacity lg:hidden", mobileOpen ? "opacity-100" : "pointer-events-none opacity-0")} />
+      <aside {...props} className={cn("fixed inset-y-0 left-0 z-[60] flex w-72 -translate-x-full flex-col overflow-hidden border-r border-zinc-200 bg-white shadow-xl transition-[left,transform] duration-300 dark:border-zinc-800 dark:bg-zinc-950 lg:shadow-none", mobileOpen && "translate-x-0", desktopOpen ? "lg:left-0 lg:translate-x-0" : "lg:-left-72", className)}>
+        <div aria-hidden="true" className="sidebar-pearl-field pointer-events-none absolute inset-0">
+          <span /><span /><span /><span /><span /><span /><span /><span /><span /><span />
+        </div>
+        <div className="relative z-10 flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 px-5 dark:border-zinc-800"><Brand brandName={brandName} brandHref={brandHref} logo={logo} onNavigate={closeMobile} /><button ref={closeButtonRef} type="button" onClick={closeNavigation} aria-label="Close navigation menu" className="flex size-9 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:hover:bg-zinc-900"><X className="size-5" /></button></div>
+        <nav aria-label="Primary navigation" className="relative z-10 flex-1 overflow-y-auto px-3 py-5"><a href={cartHref} onClick={closeMobile} className="mb-2 flex rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-900">{cartLabel} {totalItems > 0 && <span className="ml-2 h-5 w-5 flex items-center justify-center text-xs font-bold rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">{totalItems}</span>}</a><SidebarSection title="Categories" value="categories" openSection={openSection} onToggle={toggleSection}>{categories.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} />)}</SidebarSection><SidebarSection title="Collections" value="collections" openSection={openSection} onToggle={toggleSection}>{collections.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} />)}</SidebarSection><SidebarSection title="Pages" value="pages" openSection={openSection} onToggle={toggleSection}>{resourceItems.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} onOpenDialog={setActiveDialogHref} />)}</SidebarSection></nav>
+        <div className="relative z-10 grid shrink-0 grid-cols-2 gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800"><a href={accountHref} onClick={closeMobile} className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900">{accountLabel}</a><a href={cartHref} onClick={closeMobile} className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900">{cartLabel}</a></div>
       </aside>
       {activeDialogHref && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setActiveDialogHref(null);
           }}

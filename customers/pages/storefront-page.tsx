@@ -5,17 +5,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GooeySearch } from "@/customers/components/ui/gooey-search";
 import { MegaMenuNavbar } from "@/customers/components/ui/mega-menu-navbar";
 import { ProductGrid } from "@/customers/components/ui/product-grid";
+import { StorefrontDoodleBackground } from "@/customers/components/ui/storefront-doodle-background";
+import { StorefrontSplash } from "@/customers/components/ui/storefront-splash";
 import type { Product } from "@/customers/data/products";
 import { useCart } from "@/customers/state/cart-context";
 
 const drinkCategories = [
-  { title: "Matcha", description: "Earthy, creamy matcha drinks" },
-  { title: "Brown Sugar & Caramel Series", description: "Rich brown sugar and caramel favorites" },
-  { title: "Taro & Earthy Roots", description: "Comforting taro and earthy root flavors" },
-  { title: "Fresh Fruit & Sparklers / Cold Brew Teas", description: "Refreshing fruit, sparkling, and cold brew teas" },
-  { title: "Cream Cheese / Cheese Foam Series", description: "Drinks topped with creamy cheese foam" },
-  { title: "Specialty / Indulgent Blends", description: "Our extra-special, indulgent creations" },
-  { title: "Health & Plant-Based (Wellness Series)", description: "Feel-good plant-based choices" },
+  { title: "Matcha"},
+  { title: "Brown Sugar & Caramel Series"},
+  { title: "Taro & Earthy Roots"},
+  { title: "Fresh Fruit & Sparklers / Cold Brew Teas"},
+  { title: "Cream Cheese / Cheese Foam Series"},
+  { title: "Specialty / Indulgent Blends"},
+  { title: "Health & Plant-Based (Wellness Series)"},
 ].map((category) => ({
   ...category,
   href: `#${category.title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, "")}`,
@@ -31,6 +33,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
 
   useEffect(() => {
     const syncCategoryFromHash = () => {
@@ -104,15 +107,18 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
+      <StorefrontSplash />
       <MegaMenuNavbar
         brandName="Pearl & Pour"
         accountHref="/orders/track"
         accountLabel="Track orders"
         categories={drinkCategories}
         collections={collections}
+        onDesktopOpenChange={setDesktopSidebarOpen}
       />
-      <main className="min-h-screen px-4 py-10 lg:pl-84 lg:pr-12">
-        <div className="mx-auto flex max-w-6xl flex-col gap-10">
+      <main className={`relative isolate min-h-screen px-4 py-10 lg:pr-12 ${desktopSidebarOpen ? "lg:pl-84" : "lg:pl-16"}`}>
+        <StorefrontDoodleBackground count={Math.max(96, visibleProducts.length * 24)} />
+        <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-10">
           <div className="flex justify-center">
             <GooeySearch
               placeholder="Search drinks..."
@@ -130,6 +136,7 @@ export default function Home() {
           {!isCatalogLoading && !catalogError && products.length === 0 && <p className="text-center text-sm text-zinc-600">No drinks are available right now.</p>}
           {!isCatalogLoading && !catalogError && selectedCollection && visibleProducts.length === 0 && <p className="text-center text-sm text-zinc-600">{selectedCollection === "Best Sellers" ? "No drinks have been ordered yet." : "No new drinks have been posted this week."}</p>}
           <ProductGrid
+            showDoodleBackground={false}
             products={visibleProducts}
             eyebrow={selectedCollection ?? "Freshly shaken"}
             title={selectedCollection ?? (searchQuery ? `Results for "${searchQuery}"` : "Your next favorite cup")}
