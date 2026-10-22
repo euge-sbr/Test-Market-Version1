@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pearl & Pour",
+  title: "Cavitea & Pastry",
   description: "Freshly shaken milk teas and signature boba drinks.",
 };
 

@@ -10,7 +10,6 @@ type OrderItem = {
   quantity: number;
   unit_price: number | string;
 };
-
 type Order = {
   id: string;
   order_number: string;
@@ -156,7 +155,7 @@ export default function AdminOrdersPage() {
       <main className="flex min-h-screen items-center justify-center bg-zinc-100 px-4 py-12 dark:bg-zinc-950">
         <section className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex size-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-400"><ShieldCheck className="size-5" aria-hidden="true" /></div>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">Pearl & Pour / Admin</p>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">Cavitea &amp; Pastry / Admin</p>
           <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-white">Orders dashboard</h1>
           <p className="mt-2 text-sm text-zinc-500">Sign in to view customer orders.</p>
           <form onSubmit={handleLogin} className="mt-6">
@@ -179,11 +178,12 @@ export default function AdminOrdersPage() {
     <main className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-md bg-emerald-700 text-white"><PackageCheck className="size-5" aria-hidden="true" /></div><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">Pearl & Pour</p><h1 className="text-lg font-semibold">Orders</h1></div></div>
+          <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-md bg-emerald-700 text-white"><PackageCheck className="size-5" aria-hidden="true" /></div><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">Cavitea &amp; Pastry</p><h1 className="text-lg font-semibold">Orders</h1></div></div>
           <div className="flex items-center gap-2">
             <nav aria-label="Admin sections" className="mr-2 flex items-center gap-1 rounded-md bg-zinc-100 p-1 dark:bg-zinc-800">
               <a href="/admin/orders" aria-current="page" className="rounded bg-white px-3 py-1.5 text-sm font-semibold text-zinc-950 shadow-sm dark:bg-zinc-700 dark:text-white">Orders</a>
               <a href="/admin/products" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Products</a>
+              {!isPlatformAdmin && <a href="/admin/profile" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Profile</a>}
               {isPlatformAdmin && <a href="/admin/clients" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Clients</a>}
             </nav>
             <span role="status" className="flex items-center gap-1.5 text-xs text-zinc-500"><span className={`size-2 rounded-full ${isRealtimeConnected ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-600"}`} /><span className="hidden sm:inline">{isRealtimeConnected ? "Live" : "Connecting"}</span></span>

@@ -19,7 +19,6 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-
 type Product = {
   id: string;
   name: string;
@@ -170,7 +169,7 @@ export default function AdminProductsPage() {
       <main className="flex min-h-screen items-center justify-center bg-zinc-100 px-4 py-12 dark:bg-zinc-950">
         <section className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex size-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-400"><ShieldCheck className="size-5" aria-hidden="true" /></div>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">Pearl &amp; Pour / Admin</p>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">Cavitea &amp; Pastry / Admin</p>
           <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-white">Products dashboard</h1>
           <p className="mt-2 text-sm text-zinc-500">Sign in to manage the product catalog.</p>
           <form onSubmit={handleLogin} className="mt-6">
@@ -193,13 +192,14 @@ export default function AdminProductsPage() {
     <main className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-md bg-emerald-700 text-white"><Package className="size-5" aria-hidden="true" /></div><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">Pearl &amp; Pour</p><h1 className="text-lg font-semibold">Products</h1></div></div>
+          <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-md bg-emerald-700 text-white"><Package className="size-5" aria-hidden="true" /></div><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">Cavitea &amp; Pastry</p><h1 className="text-lg font-semibold">Products</h1></div></div>
           <div className="flex items-center gap-2">
             <nav aria-label="Admin sections" className="mr-2 flex items-center gap-1 rounded-md bg-zinc-100 p-1 dark:bg-zinc-800">
-              <a href="/admin/orders" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Orders</a>
-              <a href="/admin/products" aria-current="page" className="rounded bg-white px-3 py-1.5 text-sm font-semibold text-zinc-950 shadow-sm dark:bg-zinc-700 dark:text-white">Products</a>
-              {isPlatformAdmin && <a href="/admin/clients" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Clients</a>}
-            </nav>
+                <a href="/admin/orders" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Orders</a>
+                <a href="/admin/products" aria-current="page" className="rounded bg-white px-3 py-1.5 text-sm font-semibold text-zinc-950 shadow-sm dark:bg-zinc-700 dark:text-white">Products</a>
+                {!isPlatformAdmin && <a href="/admin/profile" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Profile</a>}
+                {isPlatformAdmin && <a href="/admin/clients" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Clients</a>}
+          </nav>
             <button type="button" onClick={() => void refreshProducts()} disabled={isRefreshing} title="Refresh products" aria-label="Refresh products" className="flex size-9 items-center justify-center rounded-md border border-zinc-200 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"><RefreshCw className={`size-4 ${isRefreshing ? "animate-spin" : ""}`} /></button>
             <button type="button" onClick={() => void handleLogout()} className="flex h-9 items-center gap-2 rounded-md border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"><LogOut className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Sign out</span></button>
           </div>

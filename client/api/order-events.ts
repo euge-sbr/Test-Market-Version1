@@ -30,10 +30,11 @@ export async function GET() {
         if (!closed) controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
       const heartbeat = setInterval(() => send("ping", {}), 25_000);
+      // order_items has no shop_id, so it can't be filtered per shop. Items are written in the
+      // same transaction as their order (create_shop_orders), so the orders event covers them.
       const channel = supabase
         .channel(`admin-orders-${session.shopId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `shop_id=eq.${session.shopId}` }, () => send("change", { table: "orders" }))
-        .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => send("change", { table: "order_items" }));
+        .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `shop_id=eq.${session.shopId}` }, () => send("change", { table: "orders" }));
       cleanup = () => {
         if (closed) return;
         closed = true;

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { Check, CreditCard, MapPin, ShoppingBag, Truck } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { getPearlPriceAdjustment, getSizePriceAdjustment } from "@/customers/data/drink-options";
 import { useCart } from "@/customers/state/cart-context";
+
+const TRACKING_STORAGE_KEY = "pearlpour-order-tracking";
 
 const inputClassName =
   "mt-2 w-full rounded-md border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100";
@@ -23,13 +25,39 @@ function isCreatedOrder(value: unknown): value is CreatedOrder {
     && "trackingToken" in value && typeof value.trackingToken === "string";
 }
 
-export default function CheckoutPage() {
+function saveTrackingTokens(newTokens: string[]) {
+  try {
+    const localRaw = localStorage.getItem(TRACKING_STORAGE_KEY);
+    const sessionRaw = sessionStorage.getItem(TRACKING_STORAGE_KEY);
+    const parsedLocal: unknown = JSON.parse(localRaw ?? "[]");
+    const parsedSession: unknown = JSON.parse(sessionRaw ?? "[]");
+    const existingTokens = [
+      ...(Array.isArray(parsedLocal) ? parsedLocal : []),
+      ...(Array.isArray(parsedSession) ? parsedSession : []),
+    ].filter((token): token is string => typeof token === "string");
+    const merged = [...new Set([...newTokens, ...existingTokens])].slice(0, 50);
+    localStorage.setItem(TRACKING_STORAGE_KEY, JSON.stringify(merged));
+    sessionStorage.removeItem(TRACKING_STORAGE_KEY);
+  } catch (error) {
+    console.error("Could not save order tracking codes:", error);
+  }
+}
+
+export default function CheckoutPage({ cardPaymentsEnabled = false }: { cardPaymentsEnabled?: boolean }) {
   const { items, products, totalItems, totalPrice, clearCart, isCatalogLoading, catalogError, refreshProducts } = useCart();
-  const [paymentMethod, setPaymentMethod] = useState("card");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash">(cardPaymentsEnabled ? "card" : "cash");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdOrders, setCreatedOrders] = useState<CreatedOrder[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [wasPaymentCancelled, setWasPaymentCancelled] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "cancelled") {
+      setWasPaymentCancelled(true);
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,15 +96,15 @@ export default function CheckoutPage() {
         setErrorMessage("Your order was placed, but tracking details could not be loaded. Please contact support with your checkout confirmation.");
         return;
       }
-      setCreatedOrders(result.orders);
-      try {
-        sessionStorage.setItem(
-          "pearlpour-order-tracking",
-          JSON.stringify(result.orders.map((order: CreatedOrder) => order.trackingToken)),
-        );
-      } catch (error) {
-        console.error("Could not save order tracking codes:", error);
+
+      saveTrackingTokens(result.orders.map((order: CreatedOrder) => order.trackingToken));
+
+      if (typeof result.paymentUrl === "string" && result.paymentUrl) {
+        window.location.assign(result.paymentUrl);
+        return;
       }
+
+      setCreatedOrders(result.orders);
       clearCart();
       setIsSubmitted(true);
     } catch {
@@ -96,7 +124,7 @@ export default function CheckoutPage() {
           <p className="mt-6 text-sm font-medium uppercase tracking-[0.18em] text-indigo-600">Order received</p>
           <h1 className="mt-2 text-3xl font-bold text-zinc-950 dark:text-zinc-50">Your order is waiting for the shop</h1>
           <p className="mt-4 text-zinc-600 dark:text-zinc-400">
-            Track each shop’s progress below. This page updates as your order status changes.
+            Track each shop’s progress below. Your tracking links are saved in this browser so you can check back anytime.
           </p>
           <div className="mt-6 space-y-3 text-left">
             {createdOrders.map((order) => (
@@ -104,6 +132,9 @@ export default function CheckoutPage() {
                 <div>
                   <p className="font-medium text-zinc-950 dark:text-zinc-50">{order.shopName}</p>
                   <p className="mt-1 text-xs text-zinc-500">Order {order.orderNumber} · Waiting for confirmation</p>
+                  <p className="mt-1 font-mono text-[11px] text-zinc-400 select-all" title="Private tracking code">
+                    Code: {order.trackingToken}
+                  </p>
                 </div>
                 <Link href={`/orders/track#${order.trackingToken}`} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
                   Track order
@@ -147,10 +178,16 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-10">
           <Link href="/cart" className="text-sm font-medium text-indigo-600 hover:text-indigo-700">Back to cart</Link>
-          <p className="mt-6 text-sm font-medium uppercase tracking-[0.18em] text-indigo-600">Pearl & Pour</p>
+          <p className="mt-6 text-sm font-medium uppercase tracking-[0.18em] text-indigo-600">Cavitea &amp; Pastry</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">Checkout</h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">A few details and we&apos;ll get your order ready.</p>
         </div>
+
+        {wasPaymentCancelled && (
+          <div role="status" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+            Card checkout was cancelled. Your cart is still saved below—you can try again or choose cash on delivery.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-6">
@@ -159,7 +196,7 @@ export default function CheckoutPage() {
                 <div className="flex size-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-400/10 dark:text-indigo-400">1</div>
                 <div>
                   <h2 className="font-semibold text-zinc-950 dark:text-zinc-50">Contact details</h2>
-                  <p className="text-sm text-zinc-500">We&apos;ll send your receipt here.</p>
+                  <p className="text-sm text-zinc-500">We&apos;ll send your order confirmation and tracking link here.</p>
                 </div>
               </div>
               <div className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -193,17 +230,18 @@ export default function CheckoutPage() {
                   <p className="text-sm text-zinc-500">Choose how you&apos;d like to pay.</p>
                 </div>
               </div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <label className={`cursor-pointer rounded-lg border p-4 transition ${paymentMethod === "card" ? "border-indigo-600 ring-2 ring-indigo-600/10" : "border-zinc-200 dark:border-zinc-700"}`}>
-                  <input type="radio" name="payment" value="card" checked={paymentMethod === "card"} onChange={() => setPaymentMethod("card")} className="sr-only" />
-                  <span className="flex items-center gap-3"><CreditCard className="size-5 text-indigo-600" aria-hidden="true" /><span><span className="block text-sm font-medium">Card</span><span className="block text-xs text-zinc-500">Secure payment</span></span></span>
-                </label>
+              <div className={`mt-6 grid gap-3 ${cardPaymentsEnabled ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
+                {cardPaymentsEnabled && (
+                  <label className={`cursor-pointer rounded-lg border p-4 transition ${paymentMethod === "card" ? "border-indigo-600 ring-2 ring-indigo-600/10" : "border-zinc-200 dark:border-zinc-700"}`}>
+                    <input type="radio" name="payment" value="card" checked={paymentMethod === "card"} onChange={() => setPaymentMethod("card")} className="sr-only" />
+                    <span className="flex items-center gap-3"><CreditCard className="size-5 text-indigo-600" aria-hidden="true" /><span><span className="block text-sm font-medium">Card</span><span className="block text-xs text-zinc-500">Secure payment via Stripe</span></span></span>
+                  </label>
+                )}
                 <label className={`cursor-pointer rounded-lg border p-4 transition ${paymentMethod === "cash" ? "border-indigo-600 ring-2 ring-indigo-600/10" : "border-zinc-200 dark:border-zinc-700"}`}>
                   <input type="radio" name="payment" value="cash" checked={paymentMethod === "cash"} onChange={() => setPaymentMethod("cash")} className="sr-only" />
                   <span className="flex items-center gap-3"><Truck className="size-5 text-indigo-600" aria-hidden="true" /><span><span className="block text-sm font-medium">Cash on delivery</span><span className="block text-xs text-zinc-500">Pay when it arrives</span></span></span>
                 </label>
               </div>
-              {paymentMethod === "card" && <p className="mt-4 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-950">Card processing will be connected when payments are enabled.</p>}
             </section>
           </div>
 
@@ -222,10 +260,9 @@ export default function CheckoutPage() {
             <div className="mt-3 flex justify-between text-sm text-zinc-300 dark:text-zinc-600"><span>Delivery</span><span>Free</span></div>
             <div className="mt-5 flex justify-between text-lg font-semibold"><span>Total</span><span>${totalPrice.toFixed(2)}</span></div>
             <button type="submit" disabled={isSubmitting} className="mt-7 flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:cursor-wait disabled:opacity-60 dark:focus:ring-offset-white">
-              <MapPin className="size-4" aria-hidden="true" /> {isSubmitting ? "Saving order..." : "Confirm order"}
+              <MapPin className="size-4" aria-hidden="true" /> {isSubmitting ? "Saving order..." : paymentMethod === "card" ? "Continue to payment" : "Confirm order"}
             </button>
             {errorMessage && <p role="alert" className="mt-3 text-center text-sm text-red-300">{errorMessage}</p>}
-            <p className="mt-4 text-center text-xs text-zinc-400">No payment is charged in this demo checkout.</p>
           </aside>
         </form>
       </div>

@@ -71,6 +71,29 @@ async function uploadProductImage(file: FormDataEntryValue | null, supabaseUrl: 
   return `${supabaseUrl}/storage/v1/object/public/product-images/${path}`;
 }
 
+async function deleteStoredProductImage(imageUrl: unknown, supabaseUrl: string, key: string) {
+  if (typeof imageUrl !== "string") return;
+  const publicPrefix = `${supabaseUrl}/storage/v1/object/public/product-images/`;
+  if (!imageUrl.startsWith(publicPrefix)) return;
+  const objectPath = imageUrl.slice(publicPrefix.length);
+  if (!objectPath) return;
+
+  try {
+    const response = await fetch(`${supabaseUrl}/storage/v1/object/product-images/${objectPath}`, {
+      method: "DELETE",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+    });
+    if (!response.ok) {
+      console.error("Could not delete old product image:", await response.text());
+    }
+  } catch (error) {
+    console.error("Could not delete old product image:", error);
+  }
+}
+
 export async function GET() {
   const session = await getAdminSession();
   if (!session) return fail("Sign in required.", 401);
@@ -107,8 +130,29 @@ async function saveProduct(form: FormData, existingId?: string) {
     product.shop_id = session.shopId;
 
     const { supabaseUrl, supabaseKey } = getSupabaseServerConfig();
+    let previousImageUrl: string | null = null;
     const imageUrl = await uploadProductImage(form.get("image"), supabaseUrl, supabaseKey);
-    if (imageUrl) product.image_url = imageUrl;
+    if (imageUrl) {
+      product.image_url = imageUrl;
+      if (existingId) {
+        try {
+          const currentUrl = new URL(`${supabaseUrl}/rest/v1/products`);
+          currentUrl.searchParams.set("select", "image_url");
+          currentUrl.searchParams.set("id", `eq.${existingId}`);
+          currentUrl.searchParams.set("shop_id", `eq.${session.shopId}`);
+          const currentResponse = await fetch(currentUrl, {
+            headers: headers(supabaseKey),
+            cache: "no-store",
+          });
+          if (currentResponse.ok) {
+            const [currentProduct] = (await currentResponse.json()) as Array<{ image_url?: string | null }>;
+            previousImageUrl = currentProduct?.image_url ?? null;
+          }
+        } catch (error) {
+          console.error("Could not check previous product image:", error);
+        }
+      }
+    }
 
     const url = new URL(`${supabaseUrl}/rest/v1/products`);
     const method = existingId ? "PATCH" : "POST";
@@ -130,6 +174,9 @@ async function saveProduct(form: FormData, existingId?: string) {
     }
     const [savedProduct] = await response.json();
     if (!savedProduct) return fail("Product not found.", 404);
+    if (imageUrl && previousImageUrl && previousImageUrl !== imageUrl) {
+      await deleteStoredProductImage(previousImageUrl, supabaseUrl, supabaseKey);
+    }
     return Response.json({ product: savedProduct }, { status: existingId ? 200 : 201 });
   } catch (error) {
     console.error("Could not save product:", error);
@@ -195,14 +242,16 @@ export async function DELETE(request: Request) {
     const url = new URL(`${supabaseUrl}/rest/v1/products`);
     url.searchParams.set("id", `eq.${id}`);
     url.searchParams.set("shop_id", `eq.${session.shopId}`);
-    url.searchParams.set("select", "id");
+    url.searchParams.set("select", "id,image_url");
     const response = await fetch(url, {
       method: "DELETE",
       headers: headers(supabaseKey, { Prefer: "return=representation" }),
     });
     if (!response.ok) return fail("Could not delete product.", 502);
-    const deleted = await response.json();
-    return deleted.length ? Response.json({ deleted: true }) : fail("Product not found.", 404);
+    const deleted = (await response.json()) as Array<{ id: string; image_url?: string | null }>;
+    if (!deleted.length) return fail("Product not found.", 404);
+    await deleteStoredProductImage(deleted[0].image_url, supabaseUrl, supabaseKey);
+    return Response.json({ deleted: true });
   } catch (error) {
     console.error("Could not delete product:", error);
     return fail("Product catalog is unavailable.", 503);

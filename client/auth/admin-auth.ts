@@ -14,7 +14,9 @@ export type AdminSession = {
 };
 
 function createSignature(payload: string): string {
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Prefer a dedicated secret so rotating the Supabase key doesn't log everyone out
+  // (and rotating SESSION_SECRET revokes every session). Falls back for older deployments.
+  const secret = process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!secret) throw new Error("Admin session signing is not configured.");
 
   return createHmac("sha256", secret)

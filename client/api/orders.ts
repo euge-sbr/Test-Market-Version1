@@ -5,7 +5,7 @@ const orderStatuses = ["pending", "confirmed", "preparing", "delivered", "cancel
 type OrderStatus = (typeof orderStatuses)[number];
 
 function getHeaders(key: string, extra: Record<string, string> = {}) {
-  return { apikey: key, "Content-Type": "application/json", ...extra };
+  return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
 }
 
 export async function GET() {
@@ -20,12 +20,16 @@ export async function GET() {
     const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`);
     ordersUrl.searchParams.set("select", "*");
     ordersUrl.searchParams.set("shop_id", `eq.${session.shopId}`);
+    // Card orders appear only once Stripe confirms payment; abandoned card checkouts stay hidden.
+    ordersUrl.searchParams.set("payment_status", "in.(cash_on_delivery,paid)");
     ordersUrl.searchParams.set("order", "created_at.desc");
     ordersUrl.searchParams.set("limit", "200");
-    const ordersResponse = await fetch(
-      ordersUrl,
-      { headers, cache: "no-store" },
-    );
+    let ordersResponse = await fetch(ordersUrl, { headers, cache: "no-store" });
+    if (!ordersResponse.ok && ordersResponse.status === 400) {
+      // Fallback if payment_status column from supabase/schema.sql hasn't been applied yet.
+      ordersUrl.searchParams.delete("payment_status");
+      ordersResponse = await fetch(ordersUrl, { headers, cache: "no-store" });
+    }
 
     if (!ordersResponse.ok) {
       console.error("Failed to load admin orders:", await ordersResponse.text());
@@ -87,7 +91,8 @@ export async function PATCH(request: Request) {
     const url = new URL(`${supabaseUrl}/rest/v1/orders`);
     url.searchParams.set("id", `eq.${orderId}`);
     url.searchParams.set("shop_id", `eq.${session.shopId}`);
-    const response = await fetch(
+    url.searchParams.set("payment_status", "in.(cash_on_delivery,paid)");
+    let response = await fetch(
       url,
       {
         method: "PATCH",
@@ -95,6 +100,17 @@ export async function PATCH(request: Request) {
         body: JSON.stringify({ status }),
       },
     );
+    if (!response.ok && response.status === 400) {
+      url.searchParams.delete("payment_status");
+      response = await fetch(
+        url,
+        {
+          method: "PATCH",
+          headers: getHeaders(supabaseKey, { Prefer: "return=representation" }),
+          body: JSON.stringify({ status }),
+        },
+      );
+    }
 
     if (!response.ok) {
       console.error("Failed to update admin order:", await response.text());

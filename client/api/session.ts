@@ -9,6 +9,7 @@ import {
   verifyAdminPassword,
   verifyShopPassword,
 } from "@/client/auth/admin-auth";
+import { checkRateLimit, getClientIp, tooManyRequests } from "@/shared/rate-limit";
 import { getSupabaseServerConfig } from "@/shared/supabase/server";
 
 const cookieOptions = {
@@ -37,6 +38,15 @@ export async function POST(request: Request) {
   }
 
   let shopId = DEFAULT_SHOP_ID;
+
+  // Limit per IP and per account so neither the platform password nor a shop login can be brute-forced.
+  const account = typeof email === "string" && email.trim() ? email.trim().toLowerCase() : "platform";
+  const [ipAllowed, accountAllowed] = await Promise.all([
+    checkRateLimit("login-ip", getClientIp(request), 20, 15 * 60),
+    checkRateLimit("login-account", account, 10, 15 * 60),
+  ]);
+  if (!ipAllowed || !accountAllowed) return tooManyRequests(900);
+
   let role: "platform" | "shop" = "platform";
 
   if (typeof email === "string" && email.trim()) {

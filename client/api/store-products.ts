@@ -13,39 +13,45 @@ export async function GET() {
       apikey: supabaseKey,
       Authorization: `Bearer ${supabaseKey}`,
     };
-    const salesUrl = new URL(`${supabaseUrl}/rest/v1/order_items`);
-    salesUrl.searchParams.set("select", "product_id,quantity,orders!inner(status)");
-    salesUrl.searchParams.set("orders.status", "neq.cancelled");
-    salesUrl.searchParams.set("limit", "10000");
+    // Sales are aggregated in the database (see the product_sales view in supabase/schema.sql).
+    const salesUrl = new URL(`${supabaseUrl}/rest/v1/product_sales`);
+    salesUrl.searchParams.set("select", "product_id,units_sold");
 
-    const response = await fetch(productsUrl, {
-      headers: {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
-      },
-      cache: "no-store",
-    });
+    const [response, salesResponse] = await Promise.all([
+      fetch(productsUrl, { headers, cache: "no-store" }),
+      fetch(salesUrl, { headers, cache: "no-store" }),
+    ]);
     if (!response.ok) {
       console.error("Could not load customer catalog:", await response.text());
       return Response.json({ error: "The drink menu is temporarily unavailable." }, { status: 503 });
     }
-    const salesResponse = await fetch(salesUrl, { headers, cache: "no-store" });
-    if (!salesResponse.ok) {
-      console.error("Could not load product sales:", await salesResponse.text());
-      return Response.json({ error: "Product recommendations are temporarily unavailable." }, { status: 503 });
+
+    // Best-seller badges: use product_sales view if installed, otherwise fall back to order_items.
+    let sales: Array<{ product_id: string; units_sold: number | string }> = [];
+    if (salesResponse.ok) {
+      sales = await salesResponse.json();
+    } else {
+      const fallbackSalesUrl = new URL(`${supabaseUrl}/rest/v1/order_items`);
+      fallbackSalesUrl.searchParams.set("select", "product_id,quantity,orders!inner(status)");
+      fallbackSalesUrl.searchParams.set("orders.status", "neq.cancelled");
+      fallbackSalesUrl.searchParams.set("limit", "10000");
+      const fallbackResponse = await fetch(fallbackSalesUrl, { headers, cache: "no-store" });
+      if (fallbackResponse.ok) {
+        const rawItems = await fallbackResponse.json() as Array<{ product_id?: string | null; quantity?: number }>;
+        const totals = new Map<string, number>();
+        for (const item of rawItems) {
+          if (!item.product_id) continue;
+          totals.set(item.product_id, (totals.get(item.product_id) ?? 0) + Number(item.quantity ?? 0));
+        }
+        sales = [...totals.entries()].map(([product_id, units_sold]) => ({ product_id, units_sold }));
+      }
     }
 
     const rows = await response.json() as Array<Record<string, unknown>>;
-    const sales = await salesResponse.json() as Array<{ product_id: string; quantity: number }>;
-    const unitsSoldByProduct = new Map<string, number>();
-    for (const sale of sales) {
-      unitsSoldByProduct.set(
-        sale.product_id,
-        (unitsSoldByProduct.get(sale.product_id) ?? 0) + Number(sale.quantity),
-      );
-    }
     const bestSellerRankByProduct = new Map(
-      [...unitsSoldByProduct.entries()]
+      sales
+        .map((sale) => [sale.product_id, Number(sale.units_sold)] as const)
+        .filter(([, units]) => units > 0)
         .sort(([firstId, firstSales], [secondId, secondSales]) =>
           secondSales - firstSales || firstId.localeCompare(secondId),
         )

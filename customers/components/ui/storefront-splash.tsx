@@ -47,7 +47,7 @@ export function StorefrontSplash() {
 
   return (
     <div
-      aria-label="Pearl & Pour is getting ready"
+      aria-label="Cavitea & Pastry is getting ready"
       className={`storefront-splash fixed inset-0 z-[100] grid place-items-center overflow-hidden bg-[#fffaf4] text-zinc-900 dark:bg-neutral-950 dark:text-white${exiting ? " storefront-splash--exit" : ""}`}
       role="status"
     >
@@ -100,7 +100,7 @@ export function StorefrontSplash() {
             <path d="M97 76 115 17" stroke="#a7d8b1" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight">Pearl &amp; Pour</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Cavitea &amp; Pastry</h1>
         <p className="mt-2 text-sm tracking-wide text-zinc-600 dark:text-zinc-400">
           Freshly shaken, just for you
         </p>

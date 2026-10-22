@@ -209,7 +209,7 @@ export default function ShopsPage() {
       <main className="flex min-h-screen items-center justify-center bg-zinc-100 px-4 py-12 dark:bg-zinc-950">
         <section className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex size-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-400"><ShieldCheck className="size-5" aria-hidden="true" /></div>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">Pearl &amp; Pour / Platform</p>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">Cavitea &amp; Pastry / Platform</p>
           <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-white">Manage shops</h1>
           <form onSubmit={handleLogin} className="mt-6 space-y-4">
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Client email <span className="font-normal text-zinc-500">(leave blank for platform access)</span><input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-md border border-zinc-200 bg-white px-3 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" /></label>
@@ -231,7 +231,7 @@ export default function ShopsPage() {
     <main className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-md bg-emerald-700 text-white"><Store className="size-5" aria-hidden="true" /></div><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">Pearl &amp; Pour / Platform</p><h1 className="text-lg font-semibold">Client shops</h1></div></div>
+          <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-md bg-emerald-700 text-white"><Store className="size-5" aria-hidden="true" /></div><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">Cavitea &amp; Pastry / Platform</p><h1 className="text-lg font-semibold">Client shops</h1></div></div>
           <div className="flex items-center gap-2">
             <nav aria-label="Admin sections" className="flex items-center gap-1 rounded-md bg-zinc-100 p-1 dark:bg-zinc-800">
               <a href="/admin/orders" className="rounded px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">Orders</a>

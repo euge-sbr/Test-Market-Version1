@@ -6,12 +6,15 @@ import {
   Briefcase,
   Building2,
   ChevronDown,
-  FileText,
+  Compass,
+  CupSoda,
   Flame,
   Gamepad,
   Menu,
   MessagesSquare,
+  PackageCheck,
   RefreshCw,
+  ShoppingBag,
   Sparkles,
   Trophy,
   Truck,
@@ -70,15 +73,15 @@ const DEFAULT_COLLECTIONS: MegaMenuItem[] = [
 ];
 
 const DEFAULT_RESOURCE_GROUPS: MegaMenuResourceGroup[] = [
-  { title: "Company", links: [{ title: "About Us", href: "/about", icon: Building2 }, { title: "Contact", href: "/contact", icon: MessagesSquare }, { title: "Blog", href: "/blog", icon: FileText }] },
-  { title: "Support", links: [{ title: "FAQ", href: "/faq", icon: MessagesSquare }, { title: "Shipping", href: "/shipping", icon: Truck }, { title: "Returns", href: "/returns", icon: RefreshCw }] }
+  { title: "Company", links: [{ title: "About Us", href: "/about", icon: Building2 }, { title: "Contact", href: "/contact", icon: MessagesSquare }] },
+  { title: "Support", links: [{ title: "FAQ", href: "/faq", icon: MessagesSquare }, { title: "Shipping", href: "/shipping", icon: Truck }, { title: "Returns", href: "/returns", icon: RefreshCw }] },
 ];
 
 const RESOURCE_DIALOGS = {
   "/about": {
     title: "About Us",
     paragraphs: [
-      "Pearl & Pour brings independent drink makers and their handcrafted favorites together in one place. Explore the menu, discover customer favorites and new arrivals, and customize each drink to your taste.",
+      "Cavitea & Pastry brings independent drink makers and their handcrafted favorites together in one place. Explore the menu, discover customer favorites and new arrivals, and customize each drink to your taste.",
       "Every order supports the clients who create and share these drinks with our community.",
     ],
   },
@@ -87,13 +90,6 @@ const RESOURCE_DIALOGS = {
     paragraphs: [
       "Need help with a drink or an order? Our team is here to help with questions about the menu and your shopping experience.",
       "For order questions, include your order number and the email address used at checkout so the team can identify your purchase.",
-    ],
-  },
-  "/blog": {
-    title: "Blog",
-    paragraphs: [
-      "The Pearl & Pour journal is where we share stories from our drink makers, menu updates, and news from across the community.",
-      "There are no articles published yet. Check back for updates and maker stories.",
     ],
   },
   "/faq": {
@@ -127,7 +123,7 @@ function isResourceDialogHref(href: string): href is keyof typeof RESOURCE_DIALO
 }
 
 function Brand({ brandName, brandHref, logo, onNavigate }: { brandName: string; brandHref: string; logo?: React.ReactNode; onNavigate?: () => void }) {
-  return <a href={brandHref} onClick={onNavigate} className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-50">{logo ?? <span className="flex size-8 items-center justify-center rounded-lg bg-zinc-900 dark:bg-zinc-50"><Blocks className="size-5 text-white dark:text-zinc-900" /></span>}<span>{brandName}</span></a>;
+  return <a href={brandHref} onClick={onNavigate} className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-50">{logo ?? <span className="flex size-8 items-center justify-center rounded-lg bg-zinc-900 dark:bg-zinc-50"><CupSoda className="size-5 text-white dark:text-zinc-900" /></span>}<span>{brandName}</span></a>;
 }
 
 function SidebarLink({
@@ -154,9 +150,16 @@ function SidebarLink({
   return <a href={item.href} onClick={onNavigate} className={className}>{content}</a>;
 }
 
+const SECTION_ICONS: Record<SidebarSection, { icon: LucideIcon; className: string }> = {
+  categories: { icon: CupSoda, className: "text-amber-700 dark:text-amber-300" },
+  collections: { icon: Sparkles, className: "text-violet-600 dark:text-violet-300" },
+  pages: { icon: Compass, className: "text-emerald-600 dark:text-emerald-300" },
+};
+
 function SidebarSection({ title, value, openSection, onToggle, children }: { title: string; value: SidebarSection; openSection: SidebarSection | null; onToggle: (value: SidebarSection) => void; children: React.ReactNode }) {
   const isOpen = openSection === value;
-  return <div className="border-b border-zinc-300 py-2 dark:border-zinc-700"><button type="button" aria-expanded={isOpen} onClick={() => onToggle(value)} className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-base font-bold text-zinc-950 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 dark:text-white dark:hover:bg-zinc-900">{title}<ChevronDown className={cn("size-5 text-zinc-500 transform dark:text-zinc-400", isOpen && "rotate-180")} /></button><div className={cn("grid transition-[grid-template-rows,opacity] duration-200", isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}><div className="overflow-hidden"><div className="mt-1 flex flex-col gap-0.5 border-l border-zinc-300 pl-2 dark:border-zinc-700">{children}</div></div></div></div>;
+  const SectionIcon = SECTION_ICONS[value].icon;
+  return <div className="border-b border-zinc-300 py-2 dark:border-zinc-700"><button type="button" aria-expanded={isOpen} onClick={() => onToggle(value)} className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-base font-bold text-zinc-950 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 dark:text-white dark:hover:bg-zinc-900"><span className="flex items-center gap-2.5"><SectionIcon className={cn("size-4 shrink-0", SECTION_ICONS[value].className)} aria-hidden="true" /><span>{title}</span></span><ChevronDown className={cn("size-5 text-zinc-500 transform dark:text-zinc-400", isOpen && "rotate-180")} /></button><div className={cn("grid transition-[grid-template-rows,opacity] duration-200", isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}><div className="overflow-hidden"><div className="mt-1 flex flex-col gap-0.5 border-l border-zinc-300 pl-2 dark:border-zinc-700">{children}</div></div></div></div>;
 }
 
 export function MegaMenuNavbar({ brandName = "ShopMart", brandHref = "/", logo, categories = DEFAULT_CATEGORIES, collections = DEFAULT_COLLECTIONS, resourceGroups = DEFAULT_RESOURCE_GROUPS, accountHref = "/account", accountLabel = "Account", cartHref = "/cart", cartLabel = "Cart", onDesktopOpenChange, className, ...props }: MegaMenuNavbarProps) {
@@ -255,12 +258,12 @@ export function MegaMenuNavbar({ brandName = "ShopMart", brandHref = "/", logo, 
           <span /><span /><span /><span /><span /><span /><span /><span /><span /><span />
         </div>
         <div className="relative z-10 flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 px-5 dark:border-zinc-800"><Brand brandName={brandName} brandHref={brandHref} logo={logo} onNavigate={closeMobile} /><button ref={closeButtonRef} type="button" onClick={closeNavigation} aria-label="Close navigation menu" className="flex size-9 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:hover:bg-zinc-900"><X className="size-5" /></button></div>
-        <nav aria-label="Primary navigation" className="relative z-10 flex-1 overflow-y-auto px-3 py-5"><a href={cartHref} onClick={closeMobile} className="mb-2 flex rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-900">{cartLabel} {totalItems > 0 && <span className="ml-2 h-5 w-5 flex items-center justify-center text-xs font-bold rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">{totalItems}</span>}</a><SidebarSection title="Categories" value="categories" openSection={openSection} onToggle={toggleSection}>{categories.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} />)}</SidebarSection><SidebarSection title="Collections" value="collections" openSection={openSection} onToggle={toggleSection}>{collections.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} />)}</SidebarSection><SidebarSection title="Pages" value="pages" openSection={openSection} onToggle={toggleSection}>{resourceItems.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} onOpenDialog={setActiveDialogHref} />)}</SidebarSection></nav>
-        <div className="relative z-10 grid shrink-0 grid-cols-2 gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800"><a href={accountHref} onClick={closeMobile} className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900">{accountLabel}</a><a href={cartHref} onClick={closeMobile} className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900">{cartLabel}</a></div>
+        <nav aria-label="Primary navigation" className="relative z-10 flex-1 overflow-y-auto px-3 py-5"><a href={cartHref} onClick={closeMobile} className="mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-900"><ShoppingBag className="size-4 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" /><span>{cartLabel}</span> {totalItems > 0 && <span className="ml-2 h-5 w-5 flex items-center justify-center text-xs font-bold rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">{totalItems}</span>}</a><SidebarSection title="Categories" value="categories" openSection={openSection} onToggle={toggleSection}>{categories.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} />)}</SidebarSection><SidebarSection title="Collections" value="collections" openSection={openSection} onToggle={toggleSection}>{collections.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} />)}</SidebarSection><SidebarSection title="Pages" value="pages" openSection={openSection} onToggle={toggleSection}>{resourceItems.map((item) => <SidebarLink key={item.title} item={item} onNavigate={closeMobile} onOpenDialog={setActiveDialogHref} />)}</SidebarSection></nav>
+        <div className="relative z-10 grid shrink-0 grid-cols-2 gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800"><a href={accountHref} onClick={closeMobile} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"><PackageCheck className="size-4 shrink-0" aria-hidden="true" /><span>{accountLabel}</span></a><a href={cartHref} onClick={closeMobile} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900"><ShoppingBag className="size-4 shrink-0" aria-hidden="true" /><span>{cartLabel}</span></a></div>
       </aside>
       {activeDialogHref && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-stone-950/55 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setActiveDialogHref(null);
           }}
@@ -271,26 +274,36 @@ export function MegaMenuNavbar({ brandName = "ShopMart", brandHref = "/", logo, 
             aria-modal="true"
             aria-labelledby="resource-dialog-title"
             tabIndex={-1}
-            className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl outline-none dark:border-zinc-800 dark:bg-zinc-950 sm:p-8"
+            className="w-full max-w-lg rounded-3xl border border-white/80 bg-[#fdf8f1]/95 p-6 shadow-2xl backdrop-blur-xl outline-none dark:border-white/10 dark:bg-stone-950/95 sm:p-8"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">Pearl &amp; Pour</p>
-                <h2 id="resource-dialog-title" className="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-50">{RESOURCE_DIALOGS[activeDialogHref].title}</h2>
+                <p className="inline-flex items-center gap-2 rounded-full border border-amber-900/10 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-900/80 shadow-2xs dark:border-white/10 dark:bg-white/5 dark:text-amber-200/80">
+                  <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                  Cavitea &amp; Pastry
+                </p>
+                <h2
+                  id="resource-dialog-title"
+                  className="storefront-gradient-text mt-3 text-2xl font-bold tracking-tight sm:text-3xl"
+                >
+                  {RESOURCE_DIALOGS[activeDialogHref].title}
+                </h2>
               </div>
               <button
                 ref={dialogCloseButtonRef}
                 type="button"
                 onClick={() => setActiveDialogHref(null)}
                 aria-label={`Close ${RESOURCE_DIALOGS[activeDialogHref].title} dialog`}
-                className="flex size-9 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-zinc-800 dark:hover:text-white"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/80 bg-white/75 text-stone-600 shadow-2xs transition hover:bg-white hover:text-stone-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10 dark:hover:text-white"
               >
-                <X className="size-5" aria-hidden="true" />
+                <X className="size-4" aria-hidden="true" />
               </button>
             </div>
             <div className="mt-5 space-y-3">
               {RESOURCE_DIALOGS[activeDialogHref].paragraphs.map((paragraph) => (
-                <p key={paragraph} className="text-sm leading-6 text-zinc-600 dark:text-zinc-300">{paragraph}</p>
+                <p key={paragraph} className="text-sm leading-6 text-stone-600 dark:text-stone-300">
+                  {paragraph}
+                </p>
               ))}
             </div>
           </div>

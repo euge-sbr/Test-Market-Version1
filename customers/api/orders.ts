@@ -1,3 +1,7 @@
+import { after } from "next/server";
+import { sendOrderConfirmationEmail } from "@/shared/email/order-confirmation";
+import { createCheckoutSession, isStripeConfigured, toCents } from "@/shared/payments/stripe";
+import { checkRateLimit, getClientIp, tooManyRequests } from "@/shared/rate-limit";
 import { getSupabaseServerConfig } from "@/shared/supabase/server";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
@@ -52,6 +56,10 @@ function textValue(value: unknown): string {
 }
 
 export async function POST(request: Request) {
+  if (!(await checkRateLimit("checkout", getClientIp(request), 10, 10 * 60))) {
+    return tooManyRequests(600);
+  }
+
   let body: OrderRequest;
 
   try {
@@ -78,16 +86,28 @@ export async function POST(request: Request) {
     return Response.json({ error: "Please complete all required details." }, { status: 400 });
   }
 
-  if (!email.includes("@") || !["card", "cash"].includes(paymentMethod)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["card", "cash"].includes(paymentMethod)) {
     return Response.json({ error: "Please provide valid contact and payment details." }, { status: 400 });
+  }
+
+  if (
+    name.length > 120 || email.length > 254 || phone.length > 40 || address.length > 200 ||
+    city.length > 100 || postalCode.length > 20 || note.length > 500 || requestedItems.length > 50
+  ) {
+    return Response.json({ error: "Some details are too long. Please shorten them and try again." }, { status: 400 });
+  }
+
+  if (paymentMethod === "card" && !isStripeConfigured()) {
+    return Response.json({ error: "Card payments are not available yet. Please choose cash on delivery." }, { status: 400 });
   }
 
   const normalizedItems = requestedItems.map((item): NormalizedItem | null => {
     if (!item || typeof item !== "object") return null;
     const productId = textValue(item.id);
-    const quantity = typeof item.quantity === "number" && Number.isInteger(item.quantity) ? item.quantity : 0;
+    const quantity = typeof item.quantity === "number" ? item.quantity : Number(item.quantity);
     if (
       !productId ||
+      !Number.isInteger(quantity) ||
       quantity < 1 ||
       quantity > 99 ||
       !isSugarLevel(item.sugarLevel) ||
@@ -111,7 +131,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Your cart contains an invalid item." }, { status: 400 });
   }
 
-  let rollbackCreatedOrders: (() => Promise<void>) | undefined;
   try {
     const { supabaseUrl, supabaseKey } = getSupabaseServerConfig();
     const requestedProductIds = [...new Set(normalizedItems.map((item) => item!.productId))];
@@ -153,27 +172,6 @@ export async function POST(request: Request) {
       return Response.json({ error: "A product in your cart is no longer available. Refresh your cart and try again." }, { status: 409 });
     }
 
-    const supabaseHeaders = {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
-      "Content-Type": "application/json",
-    };
-    const rollbackOrderIds: string[] = [];
-    rollbackCreatedOrders = async () => {
-      const results = await Promise.allSettled(rollbackOrderIds.map(async (id) => {
-        const response = await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${id}`, {
-          method: "DELETE",
-          headers: supabaseHeaders,
-        });
-        if (!response.ok) {
-          throw new Error(`Order rollback returned HTTP ${response.status}.`);
-        }
-      }));
-      const failures = results.filter((result) => result.status === "rejected");
-      if (failures.length > 0) {
-        console.error("Could not roll back every incomplete shop order:", failures);
-      }
-    };
     const itemsByShop = new Map<string, typeof orderItems>();
     for (const item of orderItems) {
       const shopItems = itemsByShop.get(item.shop_id) ?? [];
@@ -181,81 +179,170 @@ export async function POST(request: Request) {
       itemsByShop.set(item.shop_id, shopItems);
     }
 
-    const createdOrders: Array<{
-      id: string;
-      order_number: string;
-      shop_name: string;
-      trackingToken: string;
-    }> = [];
-    for (const [shopId, shopItems] of itemsByShop) {
-      const total = shopItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
-      const orderId = randomUUID();
+    const checkoutId = randomUUID();
+    const createdOrders: Array<{ orderNumber: string; shopName: string; trackingToken: string; total: number }> = [];
+    const orderPayloads = [...itemsByShop].map(([shopId, shopItems]) => {
       const orderNumber = `PP-${Date.now().toString().slice(-8)}-${randomUUID().slice(0, 4).toUpperCase()}`;
       const trackingToken = randomBytes(32).toString("base64url");
-      const trackingTokenHash = createHash("sha256").update(trackingToken).digest("hex");
-      rollbackOrderIds.push(orderId);
-      const orderResponse = await fetch(`${supabaseUrl}/rest/v1/orders`, {
-        method: "POST",
-        headers: { ...supabaseHeaders, Prefer: "return=representation" },
-        body: JSON.stringify({
-          id: orderId,
-          shop_id: shopId,
-          order_number: orderNumber,
-          customer_name: name,
-          customer_email: email,
-          customer_phone: phone,
-          delivery_address: address,
-          delivery_city: city,
-          delivery_postal_code: postalCode,
-          delivery_note: note || null,
-          payment_method: paymentMethod,
-          total,
-          status: "pending",
-          tracking_token_hash: trackingTokenHash,
-        }),
-      });
-      const orderData = await orderResponse.json();
-      const order = orderData[0] as { id: string; order_number: string } | undefined;
-      if (!orderResponse.ok || !order) {
-        await rollbackCreatedOrders();
-        console.error("Failed to create shop order:", orderData);
-        return Response.json({ error: "We could not save your order." }, { status: 500 });
-      }
-      createdOrders.push({ ...order, shop_name: shopItems[0].shop_name, trackingToken });
-
-      const itemsResponse = await fetch(`${supabaseUrl}/rest/v1/order_items`, {
-        method: "POST",
-        headers: supabaseHeaders,
-        body: JSON.stringify(shopItems.map((item) => ({
-          order_id: order.id,
+      const total = shopItems.reduce((sum, item) => sum + toCents(item.unit_price) * item.quantity, 0) / 100;
+      createdOrders.push({ orderNumber, shopName: shopItems[0].shop_name, trackingToken, total });
+      return {
+        id: randomUUID(),
+        checkout_id: checkoutId,
+        shop_id: shopId,
+        order_number: orderNumber,
+        customer_name: name,
+        customer_email: email,
+        customer_phone: phone,
+        delivery_address: address,
+        delivery_city: city,
+        delivery_postal_code: postalCode,
+        delivery_note: note,
+        payment_method: paymentMethod,
+        total,
+        tracking_token_hash: createHash("sha256").update(trackingToken).digest("hex"),
+        items: shopItems.map((item) => ({
           product_id: item.product_id,
           product_name: item.product_name,
           quantity: item.quantity,
           unit_price: item.unit_price,
-        }))),
-      });
-      if (!itemsResponse.ok) {
-        const details = await itemsResponse.text();
-        await rollbackCreatedOrders();
-        console.error("Failed to create order items:", details);
-        return Response.json({ error: "We could not save your order items." }, { status: 500 });
+        })),
+      };
+    });
+
+    const supabaseHeaders = {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+      "Content-Type": "application/json",
+    };
+
+    // Prefer the single-transaction RPC (create_shop_orders in supabase/schema.sql).
+    // If schema.sql hasn't been re-run in Supabase yet (404 PGRST202), fall back to direct REST inserts.
+    const rpcResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/create_shop_orders`, {
+      method: "POST",
+      headers: supabaseHeaders,
+      body: JSON.stringify({ p_orders: orderPayloads }),
+      cache: "no-store",
+    });
+
+    if (!rpcResponse.ok) {
+      const rpcErrorText = await rpcResponse.text();
+      if (rpcResponse.status === 404 && rpcErrorText.includes("PGRST202")) {
+        console.warn("create_shop_orders RPC not found in Supabase; using fallback REST inserts. Re-run supabase/schema.sql to enable atomic checkout.");
+        const insertedOrderIds: string[] = [];
+        const rollback = async () => {
+          if (insertedOrderIds.length === 0) return;
+          const rollbackUrl = new URL(`${supabaseUrl}/rest/v1/orders`);
+          rollbackUrl.searchParams.set("id", `in.(${insertedOrderIds.join(",")})`);
+          await fetch(rollbackUrl, { method: "DELETE", headers: supabaseHeaders }).catch(() => undefined);
+        };
+
+        for (const payload of orderPayloads) {
+          const orderResponse = await fetch(`${supabaseUrl}/rest/v1/orders`, {
+            method: "POST",
+            headers: { ...supabaseHeaders, Prefer: "return=representation" },
+            body: JSON.stringify({
+              id: payload.id,
+              shop_id: payload.shop_id,
+              order_number: payload.order_number,
+              customer_name: payload.customer_name,
+              customer_email: payload.customer_email,
+              customer_phone: payload.customer_phone,
+              delivery_address: payload.delivery_address,
+              delivery_city: payload.delivery_city,
+              delivery_postal_code: payload.delivery_postal_code,
+              delivery_note: payload.delivery_note || null,
+              payment_method: payload.payment_method,
+              total: payload.total,
+              status: "pending",
+              tracking_token_hash: payload.tracking_token_hash,
+            }),
+          });
+          if (!orderResponse.ok) {
+            console.error("Failed to create shop order:", await orderResponse.text());
+            await rollback();
+            return Response.json({ error: "We could not save your order. Please try again." }, { status: 500 });
+          }
+          insertedOrderIds.push(payload.id);
+
+          const itemsResponse = await fetch(`${supabaseUrl}/rest/v1/order_items`, {
+            method: "POST",
+            headers: supabaseHeaders,
+            body: JSON.stringify(payload.items.map((item) => ({
+              order_id: payload.id,
+              product_id: item.product_id,
+              product_name: item.product_name,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            }))),
+          });
+          if (!itemsResponse.ok) {
+            console.error("Failed to create order items:", await itemsResponse.text());
+            await rollback();
+            return Response.json({ error: "We could not save your order items. Please try again." }, { status: 500 });
+          }
+        }
+      } else {
+        console.error("Failed to create shop orders:", rpcErrorText);
+        return Response.json({ error: "We could not save your order. Please try again." }, { status: 500 });
       }
     }
 
-    return Response.json({
-      orders: createdOrders.map(({ order_number, shop_name, trackingToken }) => ({
-        orderNumber: order_number,
-        shopName: shop_name,
-        trackingToken,
+    const siteUrl = (process.env.SITE_URL?.replace(/\/$/, "") || new URL(request.url).origin);
+    const trackingUrlFor = (token: string) => `${siteUrl}/orders/track#${token}`;
+    const responseOrders = createdOrders.map(({ orderNumber, shopName, trackingToken }) => ({ orderNumber, shopName, trackingToken }));
+
+    // Email the private tracking links so customers can find their orders later.
+    // Scheduled with after() so a slow email provider never delays checkout.
+    const scheduleConfirmationEmail = () => after(() => sendOrderConfirmationEmail({
+      to: email,
+      customerName: name,
+      paymentMethod: paymentMethod as "card" | "cash",
+      orders: createdOrders.map((order) => ({
+        orderNumber: order.orderNumber,
+        shopName: order.shopName,
+        total: order.total,
+        trackingUrl: trackingUrlFor(order.trackingToken),
       })),
-    }, { status: 201 });
-  } catch (error) {
-    if (rollbackCreatedOrders) {
-      await rollbackCreatedOrders();
-      console.error("Order checkout failed:", error);
-      return Response.json({ error: "We could not save your order. Please try again." }, { status: 500 });
+    }).catch((error) => console.error("Order confirmation email failed:", error)));
+
+    if (paymentMethod !== "card") {
+      scheduleConfirmationEmail();
+      return Response.json({ orders: responseOrders }, { status: 201 });
     }
-    console.error("Supabase is not configured:", error);
-    return Response.json({ error: "Supabase is not configured yet." }, { status: 503 });
+
+    try {
+      const session = await createCheckoutSession({
+        checkoutId,
+        customerEmail: email,
+        successUrl: `${siteUrl}/orders/track?payment=success`,
+        cancelUrl: `${siteUrl}/checkout?payment=cancelled`,
+        lineItems: orderItems.map((item) => ({
+          name: item.product_name,
+          description: `Sold by ${item.shop_name}`,
+          unitAmountCents: toCents(item.unit_price),
+          quantity: item.quantity,
+        })),
+      });
+      await fetch(`${supabaseUrl}/rest/v1/orders?checkout_id=eq.${checkoutId}`, {
+        method: "PATCH",
+        headers: supabaseHeaders,
+        body: JSON.stringify({ stripe_session_id: session.id }),
+      }).catch((error) => console.error("Could not store Stripe session id:", error));
+      scheduleConfirmationEmail();
+      return Response.json({ orders: responseOrders, paymentUrl: session.url }, { status: 201 });
+    } catch (error) {
+      console.error("Could not start card payment:", error);
+      // Cancel the unpaid orders so shops never see them.
+      await fetch(`${supabaseUrl}/rest/v1/orders?checkout_id=eq.${checkoutId}`, {
+        method: "PATCH",
+        headers: supabaseHeaders,
+        body: JSON.stringify({ payment_status: "expired", status: "cancelled" }),
+      }).catch((cancelError) => console.error("Could not cancel unpaid orders:", cancelError));
+      return Response.json({ error: "We could not start the card payment. Please try again or choose cash on delivery." }, { status: 502 });
+    }
+  } catch (error) {
+    console.error("Order checkout failed:", error);
+    return Response.json({ error: "We could not save your order. Please try again." }, { status: 503 });
   }
 }

@@ -13,9 +13,10 @@ create table if not exists public.shops (
 alter table public.shops add column if not exists is_active boolean not null default true;
 
 insert into public.shops (id, name, slug)
-values ('00000000-0000-4000-8000-000000000001', 'Pearl & Pour', 'pearl-and-pour')
+values ('00000000-0000-4000-8000-000000000001', 'Cavitea & Pastry', 'cavitea-and-pastry')
 on conflict (id) do nothing;
 
+update public.shops set name = 'Cavitea & Pastry', slug = 'cavitea-and-pastry' where id = '00000000-0000-4000-8000-000000000001' and slug = 'pearl-and-pour';
 alter table public.shops enable row level security;
 
 create table if not exists public.products (
@@ -151,6 +152,139 @@ begin
     execute 'alter publication supabase_realtime add table public.products';
   end if;
 end $$;
+
+-- Shop profile fields used by /admin/profile and the public shop directory.
+alter table public.shops add column if not exists logo_url text;
+alter table public.shops add column if not exists location text;
+alter table public.shops add column if not exists promotion text;
+alter table public.shops add column if not exists bio text;
+
+create index if not exists order_items_order_id_idx on public.order_items (order_id);
+
+-- Payments. Cash orders go straight to the shop; card orders wait for Stripe to confirm payment.
+alter table public.orders add column if not exists payment_status text not null default 'cash_on_delivery';
+alter table public.orders drop constraint if exists orders_payment_status_check;
+alter table public.orders add constraint orders_payment_status_check
+  check (payment_status in ('cash_on_delivery', 'awaiting_payment', 'paid', 'expired'));
+-- One checkout can create several shop orders; they share a checkout_id and one Stripe session.
+alter table public.orders add column if not exists checkout_id uuid;
+alter table public.orders add column if not exists stripe_session_id text;
+create index if not exists orders_checkout_id_idx on public.orders (checkout_id);
+
+-- Atomic checkout: every shop order and its items are inserted in one transaction.
+-- Prices are validated by the server before calling; totals are recomputed here from the items.
+create or replace function public.create_shop_orders(p_orders jsonb)
+returns void
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  o jsonb;
+begin
+  if jsonb_typeof(p_orders) <> 'array' or jsonb_array_length(p_orders) = 0 then
+    raise exception 'No orders supplied.';
+  end if;
+
+  for o in select value from jsonb_array_elements(p_orders) loop
+    if jsonb_typeof(o->'items') <> 'array' or jsonb_array_length(o->'items') = 0 then
+      raise exception 'Each order needs at least one item.';
+    end if;
+
+    insert into public.orders (
+      id, shop_id, order_number, customer_name, customer_email, customer_phone,
+      delivery_address, delivery_city, delivery_postal_code, delivery_note,
+      payment_method, payment_status, checkout_id, total, status, tracking_token_hash
+    )
+    values (
+      (o->>'id')::uuid,
+      (o->>'shop_id')::uuid,
+      o->>'order_number',
+      o->>'customer_name',
+      o->>'customer_email',
+      o->>'customer_phone',
+      o->>'delivery_address',
+      o->>'delivery_city',
+      o->>'delivery_postal_code',
+      nullif(o->>'delivery_note', ''),
+      o->>'payment_method',
+      case when o->>'payment_method' = 'card' then 'awaiting_payment' else 'cash_on_delivery' end,
+      (o->>'checkout_id')::uuid,
+      (
+        select coalesce(sum(round((i->>'unit_price')::numeric, 2) * (i->>'quantity')::integer), 0)
+        from jsonb_array_elements(o->'items') as i
+      ),
+      'pending',
+      o->>'tracking_token_hash'
+    );
+
+    insert into public.order_items (order_id, product_id, product_name, quantity, unit_price)
+    select
+      (o->>'id')::uuid,
+      i->>'product_id',
+      i->>'product_name',
+      (i->>'quantity')::integer,
+      round((i->>'unit_price')::numeric, 2)
+    from jsonb_array_elements(o->'items') as i;
+  end loop;
+end;
+$$;
+
+revoke all on function public.create_shop_orders(jsonb) from public, anon, authenticated;
+grant execute on function public.create_shop_orders(jsonb) to service_role;
+
+-- Fixed-window rate limiting shared by all server instances.
+create table if not exists public.rate_limits (
+  key text primary key,
+  window_start timestamptz not null default now(),
+  hits integer not null default 0
+);
+
+alter table public.rate_limits enable row level security;
+
+create or replace function public.check_rate_limit(p_key text, p_limit integer, p_window_seconds integer)
+returns boolean
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  window_length interval := make_interval(secs => p_window_seconds);
+  current_hits integer;
+begin
+  insert into public.rate_limits as rl (key, window_start, hits)
+  values (p_key, now(), 1)
+  on conflict (key) do update set
+    window_start = case when rl.window_start < now() - window_length then now() else rl.window_start end,
+    hits = case when rl.window_start < now() - window_length then 1 else rl.hits + 1 end
+  returning hits into current_hits;
+
+  -- Occasionally purge stale buckets so the table stays small.
+  if random() < 0.01 then
+    delete from public.rate_limits where window_start < now() - interval '1 day';
+  end if;
+
+  return current_hits <= p_limit;
+end;
+$$;
+
+revoke all on function public.check_rate_limit(text, integer, integer) from public, anon, authenticated;
+grant execute on function public.check_rate_limit(text, integer, integer) to service_role;
+
+-- Best-seller ranking aggregated in the database instead of in the API route.
+create or replace view public.product_sales
+with (security_invoker = true) as
+select oi.product_id, sum(oi.quantity)::bigint as units_sold
+from public.order_items oi
+join public.orders o on o.id = oi.order_id
+where o.status <> 'cancelled'
+  and o.payment_status in ('cash_on_delivery', 'paid')
+group by oi.product_id;
+
+revoke all on public.product_sales from public, anon, authenticated;
+grant select on public.product_sales to service_role;
+
+notify pgrst, 'reload schema';
 
 -- Admin writes use SUPABASE_SERVICE_ROLE_KEY on the server only.
 -- Public clients can read available products and product images only.

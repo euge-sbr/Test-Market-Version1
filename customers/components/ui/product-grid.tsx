@@ -1,9 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
+  Flame,
   ShoppingCart,
+  Sparkles,
   Star,
 } from "lucide-react";
 
@@ -28,10 +31,33 @@ export interface ProductGridProps
   autoPlay?: boolean;
   rotationInterval?: number;
   showDoodleBackground?: boolean;
+  /** Called when a card is clicked, so the page can show the product details. */
+  onProductSelect?: (product: Product) => void;
+  /** Extra content under the headline (for example flavor ticker or storefront stats). */
+  headerExtra?: React.ReactNode;
 }
 
 const DEFAULT_PRODUCTS: Product[] = [];
 const RATING_STORAGE_KEY = "pearlpour-product-ratings";
+
+/** Each drink category gets its own accent color (card glow, border and category chip). */
+function drinkAccent(category: string) {
+  const value = category.toLowerCase();
+  if (value.includes("matcha")) return "#65a30d";
+  if (value.includes("brown sugar") || value.includes("caramel")) return "#b45309";
+  if (value.includes("taro")) return "#8b5cf6";
+  if (value.includes("fruit") || value.includes("sparkler")) return "#f43f5e";
+  if (value.includes("cheese")) return "#ca8a04";
+  if (value.includes("specialty") || value.includes("indulgent")) return "#db2777";
+  if (value.includes("health") || value.includes("plant")) return "#059669";
+  if (value.includes("milk tea")) return "#a16207";
+  return "#6366f1";
+}
+
+/** "Fresh Fruit & Sparklers / Cold Brew Teas" -> "Fresh Fruit & Sparklers" for the small chip. */
+function shortCategory(category: string) {
+  return category.split(/\s*[/(]\s*/)[0].replace(/\s+Series$/i, "").trim();
+}
 
 function initials(name: string) {
   return name
@@ -88,41 +114,76 @@ function ProductRating({
 
 function AddToCartButton({ productName, onAdd }: { productName: string; onAdd: () => void }) {
   const [animationKey, setAnimationKey] = useState(0);
+  const [addedBurstCount, setAddedBurstCount] = useState(0);
+  const resetTimerRef = useRef<number | null>(null);
+  const isJustAdded = addedBurstCount > 0;
   const label = `Add ${productName} to cart`;
 
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current !== null) {
+        window.clearTimeout(resetTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={(event) => {
-        event.stopPropagation();
-        onAdd();
-        setAnimationKey((current) => current + 1);
-      }}
-      className="ml-auto flex size-8 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-neutral-50 transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:hover:bg-neutral-100 sm:size-10"
-    >
-      <ShoppingCart
-        key={animationKey}
-        aria-hidden="true"
-        className={cn("size-4 sm:size-5", animationKey > 0 && "animate-cart-shake")}
-      />
-    </button>
+    <div className="relative ml-auto shrink-0">
+      {isJustAdded && (
+        <span
+          key={animationKey}
+          aria-live="polite"
+          className="animate-cart-badge-float pointer-events-none absolute -top-7 right-0 z-20 inline-flex items-center gap-0.5 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-bold tracking-tight whitespace-nowrap text-white shadow-md ring-2 ring-white dark:ring-neutral-900"
+        >
+          +{addedBurstCount} Added
+        </span>
+      )}
+      <button
+        type="button"
+        aria-label={label}
+        title={label}
+        onClick={(event) => {
+          event.stopPropagation();
+          onAdd();
+          setAnimationKey((current) => current + 1);
+          setAddedBurstCount((current) => current + 1);
+          if (resetTimerRef.current !== null) {
+            window.clearTimeout(resetTimerRef.current);
+          }
+          resetTimerRef.current = window.setTimeout(() => {
+            setAddedBurstCount(0);
+            resetTimerRef.current = null;
+          }, 950);
+        }}
+        className={cn(
+          "flex size-8 items-center justify-center rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 sm:size-10",
+          isJustAdded
+            ? "scale-105 bg-emerald-600 text-white shadow-md shadow-emerald-600/30 hover:bg-emerald-500"
+            : "bg-neutral-900 text-neutral-50 hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white",
+        )}
+      >
+        {isJustAdded ? (
+          <Check
+            key={`check-${animationKey}`}
+            aria-hidden="true"
+            strokeWidth={2.75}
+            className="animate-cart-check-pop size-4 sm:size-5"
+          />
+        ) : (
+          <ShoppingCart
+            aria-hidden="true"
+            className="size-4 sm:size-5"
+          />
+        )}
+      </button>
+    </div>
   );
 }
 
 function ProductImage({ product, active }: { product: Product; active: boolean }) {
-  const style = {
-    "--product-accent": product.category === "Electronics" ? "#3b82f6" :
-                       product.category === "Wearables" ? "#10b981" :
-                       product.category === "Gaming" ? "#f59e0b" :
-                       product.category === "Accessories" ? "#8b5cf6" :
-                       "#6366f1",
-  } as React.CSSProperties;
-
+  // --product-accent is set on the card wrapper (see ProductGrid) so the border, glow and chip share it.
   return (
     <div
-      style={style}
       data-mobile-featured="true"
       className={cn(
         "product-image-frame relative h-full overflow-hidden rounded-xl bg-neutral-100 transition-colors duration-500 dark:bg-neutral-900",
@@ -150,8 +211,8 @@ function ProductImage({ product, active }: { product: Product; active: boolean }
           loading="lazy"
           draggable={false}
           className={cn(
-            "product-image-photo absolute inset-0 h-full w-full object-cover grayscale transition-[filter,transform,opacity] duration-500 ease-out motion-reduce:transition-none",
-            active ? "scale-[1.02] grayscale-0" : "scale-100 grayscale",
+            "product-image-photo absolute inset-0 h-full w-full object-cover transition-[filter,transform,opacity] duration-500 ease-out motion-reduce:transition-none",
+            active ? "scale-[1.04] saturate-[1.08]" : "scale-100 saturate-100",
           )}
           style={{ objectPosition: "center top" }}
         />
@@ -199,6 +260,8 @@ export function ProductGrid({
   autoPlay = true,
   rotationInterval = 2800,
   showDoodleBackground = true,
+  onProductSelect,
+  headerExtra,
   className,
   ...props
 }: ProductGridProps) {
@@ -289,16 +352,20 @@ export function ProductGrid({
       <div className="relative mx-auto w-full max-w-6xl">
         {showDoodleBackground && <StorefrontDoodleBackground />}
 
-        <header className="relative z-10 mx-auto mb-8 max-w-2xl text-center">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
+        <header className="relative z-10 mx-auto mb-10 max-w-3xl text-center">
+          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-900/10 bg-white/70 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-900/80 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/5 dark:text-amber-200/80">
+            <span className="relative flex size-2" aria-hidden="true">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:animate-none" />
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+            </span>
             {eyebrow}
           </p>
-          <h2 className="text-balance text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
+          <h2 className="text-balance text-4xl font-bold tracking-[-0.05em] sm:text-5xl lg:text-6xl">
             <span className="relative inline-block">
-              <span className="relative z-10">{title}</span>
+              <span className="storefront-gradient-text relative z-10">{title}</span>
               <svg
                 aria-hidden="true"
-                className="absolute -bottom-3 left-0 h-3 w-full text-[#3b82f6] sm:-bottom-4 sm:h-4"
+                className="absolute -bottom-3 left-0 h-3 w-full text-amber-500/80 sm:-bottom-4 sm:h-4 dark:text-amber-300/70"
                 viewBox="0 0 100 20"
                 preserveAspectRatio="none"
                 fill="none"
@@ -312,28 +379,36 @@ export function ProductGrid({
               </svg>
             </span>
           </h2>
-          <p className="mx-auto mt-6 max-w-xl text-pretty text-sm leading-6 text-neutral-600 dark:text-neutral-400">
+          <p className="mx-auto mt-7 max-w-xl text-pretty text-sm leading-6 text-stone-600 dark:text-stone-400 sm:text-base">
             {description}
           </p>
+          {headerExtra && <div className="mt-6">{headerExtra}</div>}
         </header>
 
-        <div className="relative z-10 grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
-          {products.map((product) => {
+        <div className="relative z-10 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
+          {products.map((product, index) => {
             const active = product.id === resolvedActiveId;
+            const cardStyle = {
+              "--product-accent": drinkAccent(product.category),
+              animationDelay: `${Math.min(index, 12) * 55}ms`,
+            } as React.CSSProperties;
 
             return (
-              <div key={product.id} className="group product-card-touch-reveal">
+              <div key={product.id} className="group product-card-touch-reveal storefront-card-enter" style={cardStyle}>
                 <div
                   className={cn(
-                    "relative flex h-full flex-col overflow-hidden rounded-lg border p-2 shadow-[0_10px_35px_-24px_rgba(0,0,0,0.42)] transition-[border-color,box-shadow,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:p-4",
-                    showDoodleBackground ? "bg-white dark:bg-neutral-900" : "bg-white/85 dark:bg-neutral-900/85",
+                    "relative flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border p-2 shadow-[0_10px_35px_-24px_rgba(0,0,0,0.42)] transition-[border-color,box-shadow,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:p-4",
+                    showDoodleBackground ? "bg-white dark:bg-neutral-900" : "bg-white/80 backdrop-blur-md dark:bg-neutral-900/75",
                     active
-                      ? "-translate-y-2 border-[color-mix(in_srgb,var(--product-accent)_55%,transparent)] shadow-[0_20px_40px_-24px_color-mix(in_srgb,var(--product-accent)_55%,transparent)]"
-                      : "border-neutral-200 dark:border-neutral-700",
+                      ? "-translate-y-2 border-[color-mix(in_srgb,var(--product-accent)_55%,transparent)] shadow-[0_24px_44px_-22px_color-mix(in_srgb,var(--product-accent)_60%,transparent)]"
+                      : "border-white/70 dark:border-neutral-700/70",
                     "focus-visible:ring-2 focus-visible:ring-[var(--product-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-950",
-                    "hover:shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)]"
+                    "hover:shadow-[0_24px_40px_-22px_color-mix(in_srgb,var(--product-accent)_55%,transparent)]"
                   )}
-                  onClick={() => selectProduct(product.id)}
+                  onClick={() => {
+                    selectProduct(product.id);
+                    onProductSelect?.(product);
+                  }}
                   onPointerEnter={(event) => {
                     if (event.pointerType === "mouse") {
                       setInteracting(true);
@@ -349,8 +424,31 @@ export function ProductGrid({
                   }}
                   onBlur={() => setInteracting(false)}
                 >
-                  <div className="aspect-square w-full overflow-hidden rounded-lg sm:aspect-4/5">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-xl sm:aspect-4/5">
                     <ProductImage product={product} active={active} />
+                    <span aria-hidden="true" className="product-card-shine" />
+                    {product.category && (
+                      <span className="pointer-events-none absolute bottom-2 left-2 z-20 hidden max-w-[85%] items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-neutral-800 shadow-sm backdrop-blur-sm dark:bg-neutral-950/70 dark:text-neutral-100 sm:bottom-3 sm:left-3 sm:inline-flex">
+                        <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[var(--product-accent)]" />
+                        <span className="truncate">{shortCategory(product.category)}</span>
+                      </span>
+                    )}
+                    {(product.best_seller_rank !== null && product.best_seller_rank <= 3 || product.is_new_this_week) && (
+                      <div className="pointer-events-none absolute left-2 top-2 z-20 flex flex-wrap gap-1.5 sm:left-3 sm:top-3">
+                        {product.best_seller_rank !== null && product.best_seller_rank <= 3 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2 py-0.5 text-[10px] font-bold tracking-tight text-white shadow-sm backdrop-blur-xs sm:px-2.5 sm:py-1 sm:text-xs">
+                            <Flame className="size-3 fill-current sm:size-3.5" aria-hidden="true" />
+                            <span>#{product.best_seller_rank} Best Seller</span>
+                          </span>
+                        )}
+                        {product.is_new_this_week && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-600/95 px-2 py-0.5 text-[10px] font-bold tracking-tight text-white shadow-sm backdrop-blur-xs sm:px-2.5 sm:py-1 sm:text-xs">
+                            <Sparkles className="size-3 sm:size-3.5" aria-hidden="true" />
+                            <span>New</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-2 flex flex-1 flex-col sm:mt-4">

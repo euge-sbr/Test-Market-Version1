@@ -2,10 +2,23 @@
 
 import { useState, useRef, useEffect, useMemo, useId } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search } from "lucide-react";
+import { CupSoda, Search, Store, X } from "lucide-react";
 import { cn } from "@/shared/utils";
 
-const EMPTY_ITEMS: string[] = [];
+export interface GooeySearchItem {
+  label: string;
+  subtitle?: string;
+  imageUrl?: string | null;
+  kind?: "shop" | "product";
+}
+
+export type GooeySearchEntry = string | GooeySearchItem;
+
+const EMPTY_ITEMS: GooeySearchEntry[] = [];
+
+function normalizeEntry(entry: GooeySearchEntry): GooeySearchItem {
+  return typeof entry === "string" ? { label: entry } : entry;
+}
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 
@@ -29,18 +42,6 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay]);
   return debouncedValue;
 }
-
-// ── Animation variants ───────────────────────────────────────────────────────
-
-const buttonMotionVariants = {
-  step1: { x: 0, width: 220 },
-  step2: { x: 0, width: 340 },
-};
-
-const iconMotionVariants = {
-  hidden: { x: -50, opacity: 0 },
-  visible: { x: 16, opacity: 1 },
-};
 
 // ── Private sub-components ───────────────────────────────────────────────────
 
@@ -68,58 +69,71 @@ function LoadingSvgIcon() {
       {lines.map(([x1, y1, x2, y2], i) => (
         <line
           key={i}
-          x1={x1} y1={y1} x2={x2} y2={y2}
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
           stroke="currentColor"
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeWidth={16}
+          strokeWidth={18}
         />
       ))}
     </svg>
   );
 }
 
-function InfoSvgIcon({ index }: { index: number }) {
-  return (
-    <motion.svg
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ delay: index * 0.12 + 0.3 }}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 15 15"
-      fill="none"
-      aria-hidden="true"
-      style={{ width: 18, height: 18, position: "relative", top: 2, flexShrink: 0 }}
-    >
-      <path
-        d="M7.49991 0.876892C3.84222 0.876892 0.877075 3.84204 0.877075 7.49972C0.877075 11.1574 3.84222 14.1226 7.49991 14.1226C11.1576 14.1226 14.1227 11.1574 14.1227 7.49972C14.1227 3.84204 11.1576 0.876892 7.49991 0.876892ZM1.82707 7.49972C1.82707 4.36671 4.36689 1.82689 7.49991 1.82689C10.6329 1.82689 13.1727 4.36671 13.1727 7.49972C13.1727 10.6327 10.6329 13.1726 7.49991 13.1726C4.36689 13.1726 1.82707 10.6327 1.82707 7.49972ZM8.24992 4.49999C8.24992 4.9142 7.91413 5.24999 7.49992 5.24999C7.08571 5.24999 6.74992 4.9142 6.74992 4.49999C6.74992 4.08577 7.08571 3.74999 7.49992 3.74999C7.91413 3.74999 8.24992 4.08577 8.24992 4.49999ZM6.00003 5.99999H6.50003H7.50003C7.77618 5.99999 8.00003 6.22384 8.00003 6.49999V9.99999H8.50003H9.00003V11H8.50003H7.50003H6.50003H6.00003V9.99999H6.50003H7.00003V6.99999H6.50003H6.00003V5.99999Z"
-        fill="currentColor"
-        fillRule="evenodd"
-        clipRule="evenodd"
+function SuggestionThumbnail({ item }: { item: GooeySearchItem }) {
+  const isShop = item.kind === "shop";
+
+  if (item.imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={item.imageUrl}
+        alt=""
+        aria-hidden="true"
+        className={cn(
+          "size-8 shrink-0 border border-zinc-200 bg-zinc-100 object-cover dark:border-zinc-700 dark:bg-zinc-800",
+          isShop ? "rounded-full" : "rounded-lg",
+        )}
       />
-    </motion.svg>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "flex size-8 shrink-0 items-center justify-center border border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+        isShop ? "rounded-full" : "rounded-lg",
+      )}
+    >
+      {isShop ? <Store className="size-4" /> : <CupSoda className="size-4" />}
+    </span>
   );
 }
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
 export interface GooeySearchProps {
-  /** Strings to search locally. Ignored when `onSearch` is provided. */
-  items?: string[];
+  /** Strings or rich items to search locally. Ignored when `onSearch` is provided. */
+  items?: GooeySearchEntry[];
   /** Async/sync custom search function for external data sources. */
-  onSearch?: (query: string) => Promise<string[]> | string[];
+  onSearch?: (query: string) => Promise<GooeySearchEntry[]> | GooeySearchEntry[];
   /** Input placeholder text. */
   placeholder?: string;
   /** Label shown on the collapsed button. */
   buttonLabel?: string;
-  /** Called when the user clicks a result item. */
+  /** Called when the user selects a result item or submits/clears the query. */
   onSelect?: (item: string) => void;
+  /** Controlled or external value to sync into the search bar (e.g. category/hash navigation). */
+  value?: string;
   /** Extra class names for the outermost wrapper. */
   className?: string;
-  /** Input debounce delay in ms. Defaults to 500. */
+  /** Input debounce delay in ms. Defaults to 220. */
   debounceMs?: number;
-  /** Maximum number of results to render. Defaults to 5. */
+  /** Maximum number of results to render. Defaults to 6. */
   maxResults?: number;
 }
 
@@ -131,92 +145,159 @@ export function GooeySearch({
   placeholder = "Type to search...",
   buttonLabel = "Search",
   onSelect,
+  value,
   className,
-  debounceMs = 500,
-  maxResults = 5,
+  debounceMs = 220,
+  maxResults = 6,
 }: GooeySearchProps) {
   const uid = useId().replace(/:/g, "_");
   const filterId = `gooey-search-${uid}`;
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const onSearchRef = useRef(onSearch);
   const [step, setStep] = useState<1 | 2>(1);
-  const [searchText, setSearchText] = useState("");
-  const [results, setResults] = useState<string[]>([]);
+  const [searchText, setSearchText] = useState(value ?? "");
+  const [results, setResults] = useState<GooeySearchItem[]>([]);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  useEffect(() => {
+    onSearchRef.current = onSearch;
+  }, [onSearch]);
+
+  useEffect(() => {
+    if (value !== undefined && value !== searchText && step === 1) {
+      setSearchText(value);
+    }
+  }, [value, searchText, step]);
 
   const isUnsupported = useMemo(() => detectUnsupportedBrowser(), []);
   const debouncedQuery = useDebounce(searchText, debounceMs);
 
-  // Step only ever advances 1 -> 2, so the effect's sole job is to focus the
-  // freshly-mounted input. Nothing to reset here.
   useEffect(() => {
-    if (step === 2) inputRef.current?.focus();
+    if (step === 2) {
+      inputRef.current?.focus();
+    } else {
+      setActiveIndex(-1);
+    }
   }, [step]);
 
   useEffect(() => {
     let cancelled = false;
 
-    // All state writes live inside the async closure so none run synchronously
-    // in the effect body (keeps React from cascading renders).
     const run = async () => {
-      if (!debouncedQuery) {
-        setResults((currentResults) => currentResults.length === 0 ? currentResults : []);
+      const trimmed = debouncedQuery.trim();
+      if (!trimmed) {
+        setResults((current) => (current.length === 0 ? current : []));
+        setHasSearched(false);
         setIsLoading(false);
         return;
       }
 
       setIsLoading(true);
       try {
-        let data: string[];
-        if (onSearch) {
-          data = await onSearch(debouncedQuery);
+        let data: GooeySearchEntry[];
+        if (onSearchRef.current) {
+          data = await onSearchRef.current(trimmed);
         } else {
-          await new Promise<void>((r) => setTimeout(r, 300));
-          data = items.filter((item) =>
-            item.toLowerCase().includes(debouncedQuery.trim().toLowerCase())
-          );
+          data = items
+            .map(normalizeEntry)
+            .filter((item) => item.label.toLowerCase().includes(trimmed.toLowerCase()));
         }
-        if (!cancelled) setResults(data.slice(0, maxResults));
+        if (!cancelled) {
+          const seen = new Set<string>();
+          const uniqueItems: GooeySearchItem[] = [];
+          for (const raw of data) {
+            const normalized = normalizeEntry(raw);
+            const key = `${normalized.kind ?? ""}:${normalized.label.toLowerCase()}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              uniqueItems.push(normalized);
+            }
+          }
+          setResults(uniqueItems.slice(0, maxResults));
+          setHasSearched(true);
+          setActiveIndex(-1);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     };
 
-    run();
-    return () => { cancelled = true; };
-  }, [debouncedQuery, items, onSearch, maxResults]);
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQuery, items, maxResults]);
 
-  const btnPadding = isUnsupported ? "8px 14px" : "14px 26px";
-  const resultPadding = "10px 14px";
-  const selectResult = (item: string) => {
-    setSearchText(item);
+  const handleInputChange = (nextValue: string) => {
+    setSearchText(nextValue);
+    if (!nextValue.trim()) {
+      setResults([]);
+      setHasSearched(false);
+      void onSearchRef.current?.("");
+      onSelect?.("");
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchText("");
     setResults([]);
+    setHasSearched(false);
+    setActiveIndex(-1);
+    void onSearchRef.current?.("");
+    onSelect?.("");
+    if (step === 2) {
+      inputRef.current?.focus();
+    }
+  };
+
+  const selectResult = (label: string) => {
+    setSearchText(label);
+    setResults([]);
+    setHasSearched(false);
     setStep(1);
     inputRef.current?.blur();
-    onSelect?.(item);
+    onSelect?.(label);
   };
+
+  const submitCurrentText = () => {
+    if (activeIndex >= 0 && activeIndex < results.length) {
+      selectResult(results[activeIndex].label);
+      return;
+    }
+    const trimmed = searchText.trim();
+    setResults([]);
+    setHasSearched(false);
+    setStep(1);
+    inputRef.current?.blur();
+    onSelect?.(trimmed);
+  };
+
+  const hasQuery = searchText.trim().length > 0;
+  const showDropdown = step === 2 && hasQuery && (results.length > 0 || (hasSearched && !isLoading));
 
   return (
     <div className={cn("relative z-50 inline-flex items-center justify-center", className)}>
-      {/* Keyframe injection for loading spinner */}
       <style>{`
         .gooey-search-loading {
-          animation: gooeySearchSpin 0.5s linear infinite;
+          animation: gooeySearchSpin 0.65s linear infinite;
           transform-origin: center center;
         }
-        @keyframes gooeySearchSpin { to { transform: rotate(180deg); } }
+        @keyframes gooeySearchSpin { to { transform: rotate(360deg); } }
         .gooey-search-input::placeholder { color: var(--background); opacity: 0.55; }
       `}</style>
 
-      {/* SVG gooey filter — zero size, no layout impact */}
+      {/* SVG gooey liquid filter applied to the background shapes layer */}
       <svg aria-hidden="true" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}>
         <defs>
-          <filter id={filterId}>
-            <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+          <filter id={filterId} x="-25%" y="-50%" width="150%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
             <feColorMatrix
               in="blur"
-              type="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -15"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"
               result="goo"
             />
             <feComposite in="SourceGraphic" in2="goo" operator="atop" />
@@ -224,6 +305,7 @@ export function GooeySearch({
         </defs>
       </svg>
 
+      {/* Backdrop overlay when search is open */}
       <AnimatePresence>
         {step === 2 && (
           <motion.button
@@ -236,6 +318,7 @@ export function GooeySearch({
             onClick={() => {
               setStep(1);
               setResults([]);
+              setHasSearched(false);
               inputRef.current?.blur();
             }}
             style={{
@@ -245,7 +328,7 @@ export function GooeySearch({
               width: "100%",
               height: "100%",
               border: 0,
-              backgroundColor: "rgba(9, 9, 11, 0.14)",
+              backgroundColor: "rgba(9, 9, 11, 0.16)",
               backdropFilter: "blur(4px)",
               WebkitBackdropFilter: "blur(4px)",
               cursor: "default",
@@ -254,178 +337,214 @@ export function GooeySearch({
         )}
       </AnimatePresence>
 
-      {/* Gooey container — this is where the morphing magic happens */}
+      {/* Main interactive search shell */}
       <div
+        className="relative z-10 flex items-center justify-center"
         style={{
-          cursor: "pointer",
-          position: "relative",
-          width: step === 1 ? 220 : "min(340px, calc(100vw - 32px))",
-          transition: "width 0.75s cubic-bezier(0.16, 1, 0.3, 1)",
-          zIndex: 1,
+          width: step === 1 ? "auto" : "min(410px, calc(100vw - 32px))",
         }}
       >
-        {/* Morphing search button */}
-        <motion.div
-          variants={buttonMotionVariants}
-          initial="step1"
-          animate={step === 1 ? "step1" : "step2"}
-          transition={{ duration: 0.75, type: "spring", bounce: 0.15 }}
-          onClick={() => step === 1 && setStep(2)}
-          whileHover={{ scale: step === 2 ? 1 : 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          role={step === 1 ? "button" : undefined}
-          aria-label={step === 1 ? "Open search" : undefined}
+        {/* GOOEY SHAPES LAYER: holds both the expanding pill & the detached liquid orb */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-center"
           style={{
-            filter: isUnsupported || step === 2 ? "none" : `url(#${filterId})`,
-            backgroundColor: "var(--foreground)",
-            color: "var(--background)",
-            cursor: step === 1 ? "pointer" : "text",
-            letterSpacing: -0.5,
-            outline: "none",
-            border: "none",
-            borderRadius: 9999,
-            padding: btnPadding,
-            maxWidth: "100%",
+            filter: isUnsupported ? "none" : `url(#${filterId})`,
           }}
         >
-          {step === 1 ? (
-            <span
-              style={{
-                pointerEvents: "none",
-                textAlign: "center",
-                position: "relative",
-                color: "var(--background)",
-                opacity: 0.72,
-                fontSize: 16,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                whiteSpace: "nowrap",
-              }}
-            >
-              <Search size={20} strokeWidth={2.25} aria-hidden="true" />
-              {buttonLabel}
-            </span>
-          ) : (
-            <input
-              ref={inputRef}
-              type="text"
-              className="gooey-search-input"
-              placeholder={placeholder}
-              aria-label="Search input"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-controls={`${filterId}-results`}
-              aria-expanded={results.length > 0}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  setStep(1);
-                  setResults([]);
-                  inputRef.current?.blur();
-                }
-              }}
-              style={{
-                width: "100%",
-                minWidth: 0,
-                paddingRight: 40,
-                backgroundColor: "transparent",
-                outline: "none",
-                border: "none",
-                color: "var(--background)",
-                fontSize: 16,
-              }}
-            />
-          )}
-        </motion.div>
-
-        <AnimatePresence mode="popLayout">
-          {results.length > 0 && <motion.div
-            id={`${filterId}-results`}
-            key="results-wrapper"
-            role="listbox"
-            aria-label="Search results"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.18 }}
-            style={{
-              position: "absolute",
-              zIndex: 30,
-              top: "calc(100% + 10px)",
-              left: 0,
-              width: "100%",
-              maxHeight: 280,
-              marginTop: 10,
-              padding: 6,
-              border: "1px solid var(--border)",
-              borderRadius: 16,
-              backgroundColor: "var(--background)",
-              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.12)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              overflowY: "auto",
+          <motion.div
+            layout
+            initial={false}
+            animate={{
+              width: step === 1 ? "100%" : "calc(100% - 62px)",
             }}
-          >
-            {results.map((item, index) => (
-              <motion.button
-                key={item}
-                type="button"
-                role="option"
-                aria-selected="false"
-                onClick={() => selectResult(item)}
-                whileHover={{ y: -1 }}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.16, delay: index * 0.04 }}
-                className="rounded-lg transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-zinc-800"
+            transition={{ duration: 0.65, type: "spring", bounce: 0.22 }}
+            style={{
+              height: 52,
+              borderRadius: 9999,
+              backgroundColor: "var(--foreground)",
+            }}
+          />
+          <AnimatePresence>
+            {step === 2 && (
+              <motion.div
+                key="gooey-orb-bg"
+                initial={{ x: -58, scale: 0.5, opacity: 0 }}
+                animate={{ x: 10, scale: 1, opacity: 1 }}
+                exit={{ x: -58, scale: 0.45, opacity: 0 }}
+                transition={{ duration: 0.7, type: "spring", bounce: 0.28 }}
                 style={{
-                  padding: resultPadding,
-                  width: "100%",
-                  color: "var(--foreground)",
-                  fontSize: 14,
-                  textAlign: "left",
-                  cursor: "pointer",
+                  width: 52,
+                  height: 52,
+                  borderRadius: 9999,
+                  backgroundColor: "var(--foreground)",
+                  flexShrink: 0,
                 }}
-              >
-                <span style={{ display: "flex", minWidth: 0, alignItems: "center", gap: 8 }}>
-                  <InfoSvgIcon index={index} />
-                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item}</span>
-                </span>
-              </motion.button>
-            ))}
-          </motion.div>}
-        </AnimatePresence>
+              />
+            )}
+          </AnimatePresence>
+        </div>
 
-        {/* Floating icon bubble */}
-        <AnimatePresence mode="wait">
-          {step === 2 && (
+        {/* CRISP FOREGROUND LAYER: sharp text, input, clear button, and orb icon */}
+        <div className="relative z-10 flex h-[52px] w-full items-center">
+          {step === 1 ? (
+            <div className="flex h-full items-center gap-1 px-6">
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                aria-label="Open search"
+                className="flex h-full cursor-pointer items-center justify-center gap-2.5 whitespace-nowrap text-base font-medium tracking-tight transition-transform active:scale-95"
+                style={{ color: "var(--background)" }}
+              >
+                <Search className="size-4 shrink-0 opacity-80" strokeWidth={2.4} aria-hidden="true" />
+                <span className="max-w-[180px] truncate">
+                  {hasQuery ? searchText : buttonLabel}
+                </span>
+              </button>
+              {hasQuery && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    clearSearch();
+                  }}
+                  aria-label="Clear active search"
+                  title="Clear search"
+                  className="ml-1 flex size-6 items-center justify-center rounded-full opacity-75 transition hover:bg-white/20 hover:opacity-100 dark:hover:bg-black/20"
+                  style={{ color: "var(--background)" }}
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div
+                className="flex h-full items-center pl-5 pr-3"
+                style={{ width: "calc(100% - 62px)" }}
+              >
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="gooey-search-input h-full w-full min-w-0 bg-transparent text-base outline-none"
+                  placeholder={placeholder}
+                  aria-label="Search drinks or shops"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls={`${filterId}-results`}
+                  aria-expanded={showDropdown}
+                  value={searchText}
+                  onChange={(event) => handleInputChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setStep(1);
+                      setResults([]);
+                      setHasSearched(false);
+                      inputRef.current?.blur();
+                    } else if (event.key === "ArrowDown") {
+                      if (results.length === 0) return;
+                      event.preventDefault();
+                      setActiveIndex((prev) => (prev + 1) % results.length);
+                    } else if (event.key === "ArrowUp") {
+                      if (results.length === 0) return;
+                      event.preventDefault();
+                      setActiveIndex((prev) => (prev <= 0 ? results.length - 1 : prev - 1));
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                      submitCurrentText();
+                    }
+                  }}
+                  style={{ color: "var(--background)" }}
+                />
+                {hasQuery && (
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    aria-label="Clear search text"
+                    title="Clear"
+                    className="ml-1 flex size-7 shrink-0 items-center justify-center rounded-full opacity-75 transition hover:bg-white/15 hover:opacity-100 dark:hover:bg-black/15"
+                    style={{ color: "var(--background)" }}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+
+              {/* Detached orb button on the right */}
+              <motion.button
+                type="button"
+                onClick={submitCurrentText}
+                aria-label="Submit search"
+                initial={{ x: -58, scale: 0.5, opacity: 0 }}
+                animate={{ x: 10, scale: 1, opacity: 1 }}
+                exit={{ x: -58, scale: 0.45, opacity: 0 }}
+                transition={{ duration: 0.7, type: "spring", bounce: 0.28 }}
+                className="flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-full"
+                style={{ color: "var(--background)" }}
+              >
+                {isLoading ? (
+                  <LoadingSvgIcon />
+                ) : (
+                  <Search className="size-5" strokeWidth={2.4} aria-hidden="true" />
+                )}
+              </motion.button>
+            </>
+          )}
+        </div>
+
+        {/* Suggestions dropdown */}
+        <AnimatePresence mode="popLayout">
+          {showDropdown && (
             <motion.div
-              key="icon-bubble"
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
-              variants={iconMotionVariants}
-              transition={{ delay: 0.1, duration: 0.85, type: "spring", bounce: 0.15 }}
-              style={{
-                position: "absolute",
-                backgroundColor: "var(--foreground)",
-                width: isUnsupported ? 42 : 56,
-                height: isUnsupported ? 42 : 56,
-                right: -5,
-                top: -1,
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                borderRadius: 9999,
-                color: "var(--background)",
-              }}
+              id={`${filterId}-results`}
+              key="results-wrapper"
+              role="listbox"
+              aria-label="Search suggestions"
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              className="absolute left-0 top-[calc(100%+12px)] z-30 flex max-h-80 w-full flex-col gap-1 overflow-y-auto rounded-2xl border border-white/45 bg-white/30 p-2 shadow-[0_16px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:border-white/15 dark:bg-zinc-950/35"
             >
-              {isLoading ? <LoadingSvgIcon /> : <Search className="size-6" aria-hidden="true" />}
+              {results.length > 0 ? (
+                results.map((item, index) => {
+                  const isActive = index === activeIndex;
+                  return (
+                    <motion.button
+                      key={`${item.kind ?? "item"}:${item.label}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => selectResult(item.label)}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.14, delay: index * 0.03 }}
+                      className={cn(
+                        "flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
+                        isActive
+                          ? "bg-white/65 text-zinc-950 shadow-xs dark:bg-white/15 dark:text-white"
+                          : "text-zinc-900 hover:bg-white/50 dark:text-zinc-100 dark:hover:bg-white/10",
+                      )}
+                    >
+                      <SuggestionThumbnail item={item} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold">{item.label}</p>
+                        {item.subtitle && (
+                          <p className="truncate text-xs text-zinc-700 dark:text-zinc-300">
+                            {item.subtitle}
+                          </p>
+                        )}
+                      </div>
+                    </motion.button>
+                  );
+                })
+              ) : (
+                <div className="px-3.5 py-3 text-center text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  No matching drinks or shops found for &ldquo;{searchText.trim()}&rdquo;
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

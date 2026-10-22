@@ -38,9 +38,12 @@ const STOREFRONT_DOODLE_COLORS = [
 export function StorefrontDoodleBackground({
   className,
   count = 96,
+  animated = false,
 }: {
   className?: string;
   count?: number;
+  /** Gently bobs every other doodle (disabled for reduced motion in globals.css). */
+  animated?: boolean;
 }) {
   return (
     <div
@@ -53,9 +56,14 @@ export function StorefrontDoodleBackground({
       {Array.from({ length: count }, (_, index) => {
         const Doodle = STOREFRONT_DOODLES[index % STOREFRONT_DOODLES.length];
         const rotation = ((index * 37) % 31) - 15;
+        const bobs = animated && index % 2 === 0;
 
         return (
-          <span key={index} className="flex items-center justify-center">
+          <span
+            key={index}
+            className={cn("flex items-center justify-center", bobs && "storefront-doodle-bob")}
+            style={bobs ? { animationDelay: `-${((index * 0.73) % 6).toFixed(2)}s` } : undefined}
+          >
             <Doodle
               className={cn(
                 STOREFRONT_DOODLE_COLORS[index % STOREFRONT_DOODLE_COLORS.length],

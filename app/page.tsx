@@ -1,3 +1,3 @@
-import StorefrontPage from "@/customers/pages/storefront-page";
+  import StorefrontPage from "@/customers/pages/storefront-page";
 
-export default StorefrontPage;
+  export default StorefrontPage;
